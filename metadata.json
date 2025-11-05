@@ -1,0 +1,8 @@
+{
+  "name": "CampusConnect: All-in-One School App",
+  "description": "A comprehensive web application for students and teachers to manage assignments, exams, and notifications. This is a conceptual implementation focusing on the core academic workflow.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
