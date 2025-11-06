@@ -2,6 +2,7 @@ export enum UserRole {
   STUDENT = 'Student',
   TEACHER = 'Teacher',
   ICT_STAFF = 'ICT Staff',
+  VISITOR = 'Visitor',
 }
 
 export interface User {
@@ -12,6 +13,11 @@ export interface User {
   role: UserRole;
   department: string;
   level: number;
+  profilePicture?: string; // base64 string
+  // New fields for Marketplace
+  isVerifiedSeller?: boolean;
+  sellerBio?: string;
+  sellerApplicationStatus?: 'none' | 'pending' | 'approved' | 'rejected';
 }
 
 export enum AssignmentType {
@@ -70,6 +76,10 @@ export interface TheoryAnswer {
   questionId: string;
   text: string;
   image?: string; // base64 string
+  // New fields for file submissions
+  fileName?: string;
+  fileType?: string;
+  fileData?: string; // base64 encoded
 }
 
 
@@ -81,6 +91,12 @@ export interface Submission {
   submittedAt: string;
   answers: number[] | TheoryAnswer[]; // Objective answers are indices (number), theory are structured objects
   grade?: number;
+}
+
+export interface ExamRetakePolicy {
+  allowed: boolean;
+  maxAttempts: number;
+  passingGradePercentage: number; // e.g., 40 for 40%
 }
 
 export interface Exam {
@@ -97,6 +113,8 @@ export interface Exam {
   targetDepartments: string[];
   targetLevels: number[];
   totalMarks: number;
+  retakePolicy: ExamRetakePolicy;
+  shuffleQuestions: boolean; // New field for question shuffling
 }
 
 export interface ExamSubmission {
@@ -108,6 +126,7 @@ export interface ExamSubmission {
   submittedAt: string; // ISO string
   answers: (string | number)[];
   grade?: number;
+  attemptNumber: number;
 }
 
 // New Types for Chat and Attendance
@@ -119,6 +138,13 @@ export interface ChatGroup {
   department?: string; // e.g., 'Computer Science'
   level?: number;      // e.g., 300
   adminIds?: string[]; // New: List of user IDs who are admins
+  isEventGroup?: boolean;
+  eventId?: string;
+  isLocked: boolean;
+  // New fields for direct messaging
+  isPrivate?: boolean;
+  members?: string[]; // [userId1, userId2]
+  relatedListingId?: string; // Link to marketplace item
 }
 
 export interface ChatMessage {
@@ -127,15 +153,18 @@ export interface ChatMessage {
   senderId: string;
   senderName: string;
   timestamp: string; // ISO String
-  type: 'text' | 'voice-note';
-  text: string; // For text messages, can be empty for voice notes.
+  type: 'text' | 'voice-note' | 'image';
+  text: string; // For text messages, can be empty for voice/image notes.
   audioData?: string; // base64 string for audio
   audioDuration?: number; // duration in seconds
+  imageData?: string; // base64 string for image
+  fileName?: string; // for downloadable images
 }
 
 export interface AttendanceRecord {
-  id: string; // Composite key: `${studentId}-${date}`
+  id: string; // Composite key: `${studentId}-${courseId}-${date}`
   studentId: string;
+  courseId: string; // New field for course-specific attendance
   date: string; // YYYY-MM-DD
   status: 'Present' | 'Absent' | 'Late';
   markedById: string;
@@ -157,6 +186,19 @@ export interface CourseRegistration {
   studentId: string;
   courseId: string;
   registeredAt: string; // ISO String
+}
+
+// New type for course materials
+export interface CourseMaterial {
+  id: string;
+  courseId: string;
+  uploaderId: string;
+  title: string;
+  description?: string;
+  fileName: string;
+  fileType: string;
+  fileData: string; // base64 encoded
+  uploadedAt: string; // ISO String
 }
 
 // New Types for Payment Portal
@@ -184,4 +226,193 @@ export interface PaymentRecord {
   paymentDate: string; // ISO String
   method: string; // e.g., "Card", "Bank Transfer"
   transactionId: string;
+}
+
+export interface VisitorPayment {
+    id: string;
+    visitorId: string;
+    feeType: 'library_access';
+    amountPaid: number;
+    paidAt: string; // ISO string
+}
+
+// New Types for Accommodation Portal
+export interface Hostel {
+  id: string;
+  name: string;
+  ownerId: string; // 'school' for official hostels, or a userId
+  location: 'On-Campus' | 'Off-Campus';
+  address: string;
+  description: string;
+  images: string[]; // array of base64 strings or URLs
+  amenities: string[];
+  rules: string;
+  contactPerson: string;
+  contactPhone: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+}
+
+export interface Room {
+  id: string;
+  hostelId: string;
+  roomNumber: string;
+  type: 'Single' | 'Double' | 'Quad';
+  pricing: { duration: string; price: number }[]; // e.g., [{ duration: 'Session', price: 800 }]
+  isAvailable: boolean;
+}
+
+export type ApplicationStatus = 'Pending' | 'Approved' | 'Rejected' | 'Allocated';
+
+export interface AccommodationApplication {
+  id: string;
+  studentId: string;
+  studentName: string;
+  hostelId: string;
+  roomId: string;
+  duration: string;
+  amountPaid: number;
+  bookedAt: string; // ISO String
+}
+
+// New Types for Student Wallet
+export interface UserWallet {
+  id: string; // same as user.id
+  userId: string;
+  balance: number;
+}
+
+export interface WalletTransaction {
+  id: string;
+  walletId: string;
+  type: 'deposit' | 'payment' | 'sale_credit';
+  amount: number;
+  description: string;
+  timestamp: string; // ISO String
+}
+
+export type ItemCondition = 'New' | 'Used - Like New' | 'Used - Good' | 'Used - Fair';
+
+// New Types for Marketplace
+export interface MarketplaceListing {
+  id: string;
+  sellerId: string;
+  sellerName: string;
+  title: string;
+  description: string;
+  price: number;
+  category: string;
+  image: string; // base64
+  condition: ItemCondition; // New field for item condition
+  createdAt: string; // ISO String
+  isAvailable: boolean;
+}
+
+export interface MarketplaceOrder {
+  id: string;
+  buyerId: string;
+  listingId: string;
+  listingTitle: string;
+  sellerId: string;
+  amount: number;
+  orderedAt: string; // ISO String
+}
+
+// New Types for Event/Booking Portal
+export interface Event {
+  id: string;
+  title: string;
+  description: string;
+  date: string; // ISO String
+  type: 'Online' | 'Physical';
+  hosts: string[]; // Array of user IDs
+  creatorId: string;
+  creatorName: string;
+  chatGroupId?: string;
+  location?: string;
+  videoLink?: string;
+  ticketPrice?: number;
+}
+
+export interface EventRegistration {
+  id: string;
+  eventId: string;
+  userId: string;
+  registeredAt: string; // ISO String
+}
+
+export interface EventTicketPurchase {
+  id: string;
+  eventId: string;
+  userId: string;
+  userName: string;
+  quantity: number;
+  amountPaid: number;
+  purchasedAt: string;
+}
+
+export type ServiceCategory = 'Ride' | 'Food' | 'Table Booking' | 'Merchandise' | 'Photography';
+
+export interface RegisteredService {
+  id: string;
+  providerId: string;
+  providerName: string;
+  serviceName: string;
+  description: string;
+  price: number;
+  category: ServiceCategory;
+  status: 'Pending' | 'Approved' | 'Rejected';
+}
+
+export interface EventBooking {
+  id: string;
+  eventId: string;
+  userId: string;
+  serviceId: string;
+  details: any; // e.g., { quantity: 2 } for tickets
+  amount: number;
+  bookedAt: string; // ISO String
+}
+
+// New Types for Library
+export interface LibraryBook {
+  id: string;
+  title: string;
+  author: string;
+  description: string;
+  category: string;
+  coverImage: string; // base64
+  content: string; // Could be a very long string with page markers
+  uploaderId: string;
+  uploadedAt: string; // ISO String
+  ratings: number[]; // e.g., [5, 4, 5]
+  reviews: BookReview[];
+}
+
+export interface ReadingProgress {
+  id: string; // composite: `${userId}-${bookId}`
+  userId: string;
+  bookId: string;
+  currentPage: number;
+  lastReadAt: string; // ISO String
+}
+
+export interface BookRequest {
+    id: string;
+    userId: string;
+    userName: string;
+    title: string;
+    author: string;
+    reason: string;
+    status: 'Pending' | 'Acquired' | 'Rejected';
+    requestedAt: string; // ISO String
+}
+
+export interface BookReview {
+    id: string;
+    bookId: string;
+    userId: string;
+    userName: string;
+    rating: number; // 1-5
+    comment: string;
+    createdAt: string; // ISO String
 }

@@ -10,10 +10,19 @@ interface AssignmentTakerProps {
     onSubmit: (submission: Submission) => void;
 }
 
+const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = error => reject(error);
+    });
+};
+
 export const AssignmentTaker: React.FC<AssignmentTakerProps> = ({ assignment, studentId, studentName, onClose, onSubmit }) => {
     const [answers, setAnswers] = useState<number[] | TheoryAnswer[]>(() => {
         if (assignment.type === AssignmentType.THEORY) {
-            return assignment.theoryQuestions.map(q => ({ questionId: q.id, text: '', image: undefined }));
+            return assignment.theoryQuestions.map(q => ({ questionId: q.id, text: '', image: undefined, fileData: undefined, fileName: undefined, fileType: undefined }));
         }
         return Array(assignment.objectiveQuestions.length).fill(-1);
     });
@@ -63,6 +72,22 @@ export const AssignmentTaker: React.FC<AssignmentTakerProps> = ({ assignment, st
             reader.readAsDataURL(file);
         } else {
             alert('Please select a valid image file (PNG, JPG, JPEG).');
+        }
+    };
+    
+    const handleFileUpload = async (index: number, file: File) => {
+        if (file && assignment.type === AssignmentType.THEORY) {
+            try {
+                const fileData = await fileToBase64(file);
+                const newAnswers = [...answers] as TheoryAnswer[];
+                newAnswers[index].fileData = fileData;
+                newAnswers[index].fileName = file.name;
+                newAnswers[index].fileType = file.type;
+                setAnswers(newAnswers);
+            } catch (error) {
+                console.error("Failed to read file:", error);
+                alert("Sorry, there was an error uploading your file.");
+            }
         }
     };
 
@@ -121,15 +146,21 @@ export const AssignmentTaker: React.FC<AssignmentTakerProps> = ({ assignment, st
                                             value={(answers as TheoryAnswer[])[qIndex].text}
                                             onChange={e => handleAnswerChange(qIndex, e.target.value)}
                                             rows={8}
-                                            required
                                             placeholder="Type your answer here..."
                                             className="w-full border-slate-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
                                         ></textarea>
     
-                                        <div className="mt-2">
-                                            <label className="block text-xs font-medium text-slate-600 mb-1">Attach Diagram (Optional)</label>
-                                            <input type="file" accept="image/png, image/jpeg, image/jpg" onChange={e => e.target.files && handleImageUpload(qIndex, e.target.files[0])} className="text-sm w-full"/>
-                                            {(answers as TheoryAnswer[])[qIndex].image && <img src={(answers as TheoryAnswer[])[qIndex].image} alt="answer diagram preview" className="mt-2 rounded-md border max-h-32"/>}
+                                        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-xs font-medium text-slate-600 mb-1">Attach Diagram (Optional)</label>
+                                                <input type="file" accept="image/png, image/jpeg, image/jpg" onChange={e => e.target.files && handleImageUpload(qIndex, e.target.files[0])} className="text-sm w-full"/>
+                                                {(answers as TheoryAnswer[])[qIndex].image && <img src={(answers as TheoryAnswer[])[qIndex].image} alt="answer diagram preview" className="mt-2 rounded-md border max-h-32"/>}
+                                            </div>
+                                             <div>
+                                                <label className="block text-xs font-medium text-slate-600 mb-1">Upload File (Optional)</label>
+                                                <input type="file" accept=".pdf,.doc,.docx,.txt" onChange={e => e.target.files && handleFileUpload(qIndex, e.target.files[0])} className="text-sm w-full"/>
+                                                {(answers as TheoryAnswer[])[qIndex].fileName && <p className="text-xs text-green-600 mt-2">File selected: {(answers as TheoryAnswer[])[qIndex].fileName}</p>}
+                                            </div>
                                         </div>
                                     </div>
                                 ))}

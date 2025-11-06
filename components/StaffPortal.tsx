@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { User, ChatGroup, UserRole, Assignment, Exam, Submission, ExamSubmission } from '../types';
-import { PlusCircleIcon, TrashIcon, PencilIcon } from '../constants';
+import React, { useState, useMemo } from 'react';
+import { User, ChatGroup, UserRole, Assignment, Exam, Submission, ExamSubmission, Hostel, RegisteredService } from '../types';
+import { PlusCircleIcon, TrashIcon, PencilIcon, XIcon, CheckCircleIcon } from '../constants';
 
 interface StaffPortalProps {
     currentUser: User;
@@ -10,6 +10,10 @@ interface StaffPortalProps {
     exams: Exam[];
     submissions: Submission[];
     examSubmissions: ExamSubmission[];
+    hostels: Hostel[];
+    registeredServices: RegisteredService[];
+    onUpdateHostelStatus: (hostelId: string, status: 'Approved' | 'Rejected') => void,
+    onUpdateServiceStatus: (serviceId: string, status: 'Approved' | 'Rejected') => void,
     onDeleteUser: (userId: string) => void;
     onOpenUserCreator: () => void;
     onOpenManageAdmins: (group: ChatGroup) => void;
@@ -17,13 +21,15 @@ interface StaffPortalProps {
     onDeleteAssignment: (assignmentId: string) => void;
     onViewSubmissions: (item: Assignment | Exam, itemType: 'assignment' | 'exam') => void;
     onDeleteExam: (examId: string) => void;
+    onUpdateUser: (user: User) => Promise<User>;
 }
 
 export const StaffPortal: React.FC<StaffPortalProps> = (props) => {
     const { 
         currentUser, users, chatGroups, assignments, exams, submissions, examSubmissions,
+        hostels, registeredServices, onUpdateHostelStatus, onUpdateServiceStatus,
         onDeleteUser, onOpenUserCreator, onOpenManageAdmins, 
-        onEditAssignment, onDeleteAssignment, onViewSubmissions, onDeleteExam 
+        onEditAssignment, onDeleteAssignment, onViewSubmissions, onDeleteExam, onUpdateUser
     } = props;
     
     const [activeTab, setActiveTab] = useState('users');
@@ -40,6 +46,23 @@ export const StaffPortal: React.FC<StaffPortalProps> = (props) => {
             {children}
         </button>
     );
+    
+    const sellerApplicants = useMemo(() => {
+        return users.filter(u => u.sellerApplicationStatus === 'pending');
+    }, [users]);
+    
+    const pendingServices = useMemo(() => {
+        return registeredServices.filter(s => s.status === 'Pending');
+    }, [registeredServices]);
+
+    const handleSellerApplication = (user: User, status: 'approved' | 'rejected') => {
+        const isApproved = status === 'approved';
+        onUpdateUser({
+            ...user,
+            sellerApplicationStatus: status,
+            isVerifiedSeller: isApproved,
+        });
+    };
 
     return (
         <div className="space-y-6">
@@ -50,6 +73,9 @@ export const StaffPortal: React.FC<StaffPortalProps> = (props) => {
                     <TabButton tabId="users">User Management</TabButton>
                     <TabButton tabId="chats">Chat Management</TabButton>
                     <TabButton tabId="content">Content Management</TabButton>
+                    <TabButton tabId="accommodation">Hostel Management</TabButton>
+                    <TabButton tabId="sellers">Seller Verification</TabButton>
+                    <TabButton tabId="services">Service Verification</TabButton>
                 </nav>
             </div>
             
@@ -197,6 +223,103 @@ export const StaffPortal: React.FC<StaffPortalProps> = (props) => {
                         </div>
                     </div>
                 </div>
+            )}
+            {activeTab === 'accommodation' && (
+                 <div>
+                    <h3 className="text-xl font-bold text-slate-700 mb-4">Pending Hostel Approvals</h3>
+                    <div className="bg-white shadow-md rounded-lg overflow-x-auto">
+                        <table className="min-w-full divide-y divide-slate-200">
+                            <thead className="bg-slate-50">
+                                <tr>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Hostel Name</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Owner</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Location</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Contact</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {hostels.filter(h => h.status === 'Pending').map(hostel => (
+                                    <tr key={hostel.id}>
+                                        <td className="px-4 py-3 font-medium">{hostel.name}</td>
+                                        <td className="px-4 py-3 text-sm text-slate-600">{users.find(u => u.id === hostel.ownerId)?.name || 'Unknown'}</td>
+                                        <td className="px-4 py-3 text-sm text-slate-600">{hostel.location}</td>
+                                        <td className="px-4 py-3 text-sm text-slate-600">{hostel.contactPhone}</td>
+                                        <td className="px-4 py-3 flex items-center gap-2 text-xs">
+                                             <button onClick={() => onUpdateHostelStatus(hostel.id, 'Approved')} className="font-semibold text-green-600 hover:underline">Approve</button>
+                                             <button onClick={() => onUpdateHostelStatus(hostel.id, 'Rejected')} className="font-semibold text-red-600 hover:underline">Reject</button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                         {hostels.filter(h => h.status === 'Pending').length === 0 && <p className="text-center text-slate-400 p-8">No pending hostel submissions.</p>}
+                    </div>
+                 </div>
+            )}
+             {activeTab === 'sellers' && (
+                 <div>
+                    <h3 className="text-xl font-bold text-slate-700 mb-4">Pending Seller Applications</h3>
+                     <div className="bg-white shadow-md rounded-lg overflow-x-auto">
+                        <table className="min-w-full divide-y divide-slate-200">
+                            <thead className="bg-slate-50">
+                                <tr>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Applicant Name</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Role</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Email</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {sellerApplicants.map(user => (
+                                    <tr key={user.id}>
+                                        <td className="px-4 py-3 font-medium">{user.name}</td>
+                                        <td className="px-4 py-3 text-sm text-slate-600">{user.role}</td>
+                                        <td className="px-4 py-3 text-sm text-slate-600">{user.email}</td>
+                                        <td className="px-4 py-3 flex items-center gap-2 text-xs">
+                                             <button onClick={() => handleSellerApplication(user, 'approved')} className="font-semibold text-green-600 hover:underline">Approve</button>
+                                             <button onClick={() => handleSellerApplication(user, 'rejected')} className="font-semibold text-red-600 hover:underline">Reject</button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                         {sellerApplicants.length === 0 && <p className="text-center text-slate-400 p-8">No pending seller applications.</p>}
+                    </div>
+                 </div>
+            )}
+            {activeTab === 'services' && (
+                 <div>
+                    <h3 className="text-xl font-bold text-slate-700 mb-4">Pending Service Approvals</h3>
+                     <div className="bg-white shadow-md rounded-lg overflow-x-auto">
+                        <table className="min-w-full divide-y divide-slate-200">
+                            <thead className="bg-slate-50">
+                                <tr>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Service Name</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Provider</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Category</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Price</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {pendingServices.map(service => (
+                                    <tr key={service.id}>
+                                        <td className="px-4 py-3 font-medium">{service.serviceName}</td>
+                                        <td className="px-4 py-3 text-sm text-slate-600">{service.providerName}</td>
+                                        <td className="px-4 py-3 text-sm text-slate-600">{service.category}</td>
+                                        <td className="px-4 py-3 text-sm text-slate-600">${service.price.toFixed(2)}</td>
+                                        <td className="px-4 py-3 flex items-center gap-2 text-xs">
+                                             <button onClick={() => onUpdateServiceStatus(service.id, 'Approved')} className="font-semibold text-green-600 hover:underline">Approve</button>
+                                             <button onClick={() => onUpdateServiceStatus(service.id, 'Rejected')} className="font-semibold text-red-600 hover:underline">Reject</button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                         {pendingServices.length === 0 && <p className="text-center text-slate-400 p-8">No pending service submissions.</p>}
+                    </div>
+                 </div>
             )}
         </div>
     );

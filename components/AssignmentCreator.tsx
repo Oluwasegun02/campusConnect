@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Assignment, AssignmentType, ObjectiveQuestion, TheoryQuestion, RubricItem, AssignmentPriority } from '../types';
 import { DEPARTMENTS, LEVELS } from '../constants';
@@ -209,7 +210,12 @@ export const AssignmentCreator: React.FC<AssignmentCreatorProps> = ({ onClose, o
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">Total Marks</label>
-                            <input type="number" value={totalMarks} onChange={e => setTotalMarks(parseInt(e.target.value))} min={1} required className="w-full border-slate-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" disabled={type === AssignmentType.THEORY} />
+                            <input type="number" value={totalMarks} onChange={e => setTotalMarks(parseInt(e.target.value))} min={1} required className="w-full border-slate-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 disabled:bg-slate-100" disabled={type === AssignmentType.THEORY} />
+                            {type === AssignmentType.THEORY && (
+                                <p className="text-xs text-slate-500 mt-1">
+                                    Total marks are calculated automatically from the sum of theory questions.
+                                </p>
+                            )}
                         </div>
                          <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">Priority</label>

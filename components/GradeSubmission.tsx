@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Assignment, Submission, Exam, ExamSubmission, TheoryAnswer } from '../types';
-import { XIcon } from '../constants';
+import { XIcon, DocumentArrowDownIcon } from '../constants';
 
 interface GradeSubmissionProps {
     item: Assignment | Exam;
@@ -10,9 +10,44 @@ interface GradeSubmissionProps {
     onSaveGrade: (submissionId: string, grade: number, itemType: 'assignment' | 'exam') => void;
 }
 
+const downloadFile = (fileData: string, fileName: string, fileType: string) => {
+    const byteCharacters = atob(fileData);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: fileType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+};
+
+
 export const GradeSubmission: React.FC<GradeSubmissionProps> = ({ item, submission, itemType, onClose, onSaveGrade }) => {
     const [grade, setGrade] = useState<number | ''>(submission.grade ?? '');
     const [isSaving, setIsSaving] = useState(false);
+
+    // Guard clause to prevent crashing if a non-theory assignment is passed
+    if (itemType !== 'assignment' || !('theoryQuestions' in item)) {
+        console.error("Attempted to grade an item that is not a theory assignment:", item);
+        return (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-lg shadow-2xl w-full max-w-sm p-8 text-center">
+                    <h2 className="text-xl font-bold text-slate-800">Grading Error</h2>
+                    <p className="text-slate-600 mt-4">Manual grading is only available for theory-based assignments.</p>
+                    <button onClick={onClose} className="mt-6 bg-primary-600 text-white px-6 py-2 rounded-md hover:bg-primary-700 font-semibold">
+                        Close
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     const handleSave = () => {
         if (grade === '' || grade < 0 || grade > item.totalMarks) {
@@ -77,6 +112,18 @@ export const GradeSubmission: React.FC<GradeSubmissionProps> = ({ item, submissi
                                                 <div>
                                                     <p className="text-xs font-semibold text-slate-500 mb-1">Student's Diagram:</p>
                                                     <img src={answer.image} alt="Student Diagram" className="mt-2 rounded border bg-white max-w-sm"/>
+                                                </div>
+                                            )}
+                                            {answer.fileData && answer.fileName && answer.fileType && (
+                                                <div className="pt-2">
+                                                    <p className="text-xs font-semibold text-slate-500 mb-1">Student's Uploaded File:</p>
+                                                    <button 
+                                                        onClick={() => downloadFile(answer.fileData!, answer.fileName!, answer.fileType!)} 
+                                                        className="inline-flex items-center gap-2 text-sm font-medium text-primary-600 bg-primary-50 px-3 py-2 rounded-lg hover:bg-primary-100"
+                                                    >
+                                                        <DocumentArrowDownIcon className="w-5 h-5"/>
+                                                        {answer.fileName}
+                                                    </button>
                                                 </div>
                                             )}
                                         </div>

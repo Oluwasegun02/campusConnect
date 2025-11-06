@@ -1,10 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { User, UserRole, AttendanceRecord } from '../types';
+import { User, UserRole, AttendanceRecord, CourseRegistration, Course } from '../types';
 
 interface AttendanceOverviewProps {
     currentUser: User;
     allUsers: User[];
     records: AttendanceRecord[];
+    courses: Course[];
+    courseRegistrations: CourseRegistration[];
 }
 
 // Helper to get the start of the week (Sunday)
@@ -20,16 +22,23 @@ const getStartOfMonth = (date: Date) => {
     return new Date(date.getFullYear(), date.getMonth(), 1);
 };
 
-export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({ currentUser, allUsers, records }) => {
+export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({ currentUser, allUsers, records, courses, courseRegistrations }) => {
     const today = new Date();
     const [startDate, setStartDate] = useState(getStartOfMonth(today).toISOString().split('T')[0]);
     const [endDate, setEndDate] = useState(today.toISOString().split('T')[0]);
+    const [selectedCourseId, setSelectedCourseId] = useState('all');
 
-    const studentsInDepartment = useMemo(() => {
-        return allUsers.filter(user => 
-            user.role === UserRole.STUDENT && user.department === currentUser.department
-        );
-    }, [allUsers, currentUser.department]);
+    const teacherCourses = useMemo(() => {
+        return courses.filter(course => course.department === currentUser.department);
+    }, [courses, currentUser.department]);
+
+    const studentsForSelectedCourse = useMemo(() => {
+        if (selectedCourseId === 'all') {
+            return allUsers.filter(user => user.role === UserRole.STUDENT && user.department === currentUser.department);
+        }
+        const studentIds = new Set(courseRegistrations.filter(reg => reg.courseId === selectedCourseId).map(reg => reg.studentId));
+        return allUsers.filter(user => user.role === UserRole.STUDENT && studentIds.has(user.id));
+    }, [allUsers, courseRegistrations, selectedCourseId, currentUser.department]);
 
     const filteredRecords = useMemo(() => {
         const start = new Date(startDate);
@@ -38,12 +47,13 @@ export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({ currentU
         end.setHours(23, 59, 59, 999);
         return records.filter(r => {
             const recordDate = new Date(r.date);
-            return recordDate >= start && recordDate <= end;
+            const courseMatch = selectedCourseId === 'all' || r.courseId === selectedCourseId;
+            return recordDate >= start && recordDate <= end && courseMatch;
         });
-    }, [records, startDate, endDate]);
+    }, [records, startDate, endDate, selectedCourseId]);
 
     const studentStats = useMemo(() => {
-        return studentsInDepartment.map(student => {
+        return studentsForSelectedCourse.map(student => {
             const studentRecords = filteredRecords.filter(r => r.studentId === student.id);
             const present = studentRecords.filter(r => r.status === 'Present').length;
             const absent = studentRecords.filter(r => r.status === 'Absent').length;
@@ -60,7 +70,7 @@ export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({ currentU
                 percentage: attendancePercentage,
             };
         });
-    }, [studentsInDepartment, filteredRecords]);
+    }, [studentsForSelectedCourse, filteredRecords]);
 
     const getPercentageColor = (percentage: number) => {
         if (percentage >= 90) return 'text-green-600 bg-green-100';
@@ -72,23 +82,33 @@ export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({ currentU
         <div className="bg-white p-6 rounded-lg shadow-md space-y-6">
             <h3 className="text-xl font-bold text-slate-800">Attendance Overview</h3>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 bg-slate-50 rounded-lg border">
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 flex-wrap">
+                     <select
+                        value={selectedCourseId}
+                        onChange={e => setSelectedCourseId(e.target.value)}
+                        className="border-slate-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 bg-white"
+                    >
+                        <option value="all">All Courses</option>
+                        {teacherCourses.map(course => (
+                            <option key={course.id} value={course.id}>{course.code}</option>
+                        ))}
+                    </select>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">From</label>
+                        <label className="block text-xs font-medium text-slate-500 mb-1">From</label>
                         <input
                             type="date"
                             value={startDate}
                             onChange={e => setStartDate(e.target.value)}
-                            className="border-slate-300 rounded-md shadow-sm"
+                            className="border-slate-300 rounded-md shadow-sm text-sm"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">To</label>
+                        <label className="block text-xs font-medium text-slate-500 mb-1">To</label>
                         <input
                             type="date"
                             value={endDate}
                             onChange={e => setEndDate(e.target.value)}
-                            className="border-slate-300 rounded-md shadow-sm"
+                            className="border-slate-300 rounded-md shadow-sm text-sm"
                         />
                     </div>
                 </div>
@@ -126,7 +146,7 @@ export const AttendanceOverview: React.FC<AttendanceOverviewProps> = ({ currentU
                     </tbody>
                 </table>
              </div>
-             {studentStats.length === 0 && <p className="text-center text-slate-500 py-8">No students found in your department.</p>}
+             {studentStats.length === 0 && <p className="text-center text-slate-500 py-8">No students found for the selected criteria.</p>}
         </div>
     );
 };

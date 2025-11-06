@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Assignment, Submission, Exam, ExamSubmission } from '../types';
 import { AcademicCapIcon, CheckCircleIcon } from '../constants';
 
@@ -16,26 +16,41 @@ export const GradesView: React.FC<GradesViewProps> = ({ assignments, submissions
         .map(sub => {
             const assignment = assignments.find(a => a.id === sub.assignmentId);
             return {
+                id: sub.assignmentId,
                 title: assignment?.title || 'Unknown Assignment',
                 type: 'Assignment',
                 grade: sub.grade,
                 totalMarks: assignment?.totalMarks || 0,
                 submittedAt: sub.submittedAt,
+                attemptNumber: 1, // Assignments don't have retakes in this logic
             };
         });
 
-    const gradedExams = examSubmissions
-        .filter(s => s.grade !== undefined)
-        .map(sub => {
+    const gradedExams = useMemo(() => {
+        const bestScores: { [examId: string]: ExamSubmission } = {};
+        
+        examSubmissions
+            .filter(s => s.grade !== undefined)
+            .forEach(sub => {
+                if (!bestScores[sub.examId] || (sub.grade! > bestScores[sub.examId].grade!)) {
+                    bestScores[sub.examId] = sub;
+                }
+            });
+
+        return Object.values(bestScores).map(sub => {
             const exam = exams.find(e => e.id === sub.examId);
+            const totalAttempts = examSubmissions.filter(s => s.examId === sub.examId).length;
             return {
+                id: sub.examId,
                 title: exam?.title || 'Unknown Exam',
                 type: 'Exam',
                 grade: sub.grade,
                 totalMarks: exam?.totalMarks || 0,
                 submittedAt: sub.submittedAt,
+                attemptNumber: totalAttempts, // For potential display
             };
         });
+    }, [examSubmissions, exams]);
 
     const allGradedItems = [...gradedAssignments, ...gradedExams]
         .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
@@ -81,8 +96,13 @@ export const GradesView: React.FC<GradesViewProps> = ({ assignments, submissions
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-200">
                         {allGradedItems.map((item, index) => (
-                            <tr key={index}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{item.title}</td>
+                            <tr key={`${item.id}-${index}`}>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
+                                    {item.title}
+                                     {item.type === 'Exam' && item.attemptNumber > 1 &&
+                                        <span className="ml-2 text-xs text-slate-400 font-normal">(Best of {item.attemptNumber} attempts)</span>
+                                    }
+                                </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${item.type === 'Exam' ? 'bg-blue-100 text-blue-800' : 'bg-indigo-100 text-indigo-800'}`}>
                                         {item.type}

@@ -21,6 +21,10 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onCreate, tea
     const [targetLevels, setTargetLevels] = useState<number[]>([]);
     const [questions, setQuestions] = useState<ObjectiveQuestion[]>([{ id: `q-${Date.now()}`, questionText: '', options: ['', ''], correctAnswerIndex: 0 }]);
     const [totalMarks, setTotalMarks] = useState(100);
+    const [allowRetakes, setAllowRetakes] = useState(false);
+    const [maxAttempts, setMaxAttempts] = useState(2);
+    const [passingGrade, setPassingGrade] = useState(50);
+    const [shuffleQuestions, setShuffleQuestions] = useState(false);
 
     const handleAddQuestion = () => {
         setQuestions([...questions, { id: `q-${Date.now()}`, questionText: '', options: ['', ''], correctAnswerIndex: 0 }]);
@@ -89,6 +93,12 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onCreate, tea
             targetLevels,
             questions: type === AssignmentType.OBJECTIVE ? questions : [],
             totalMarks,
+            retakePolicy: {
+                allowed: allowRetakes,
+                maxAttempts: allowRetakes ? maxAttempts : 1,
+                passingGradePercentage: allowRetakes ? passingGrade : 0,
+            },
+            shuffleQuestions,
         };
         onCreate(newExam);
     };
@@ -137,6 +147,40 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onCreate, tea
                             <label className="block text-sm font-medium text-slate-700 mb-1">Total Marks</label>
                             <input type="number" value={totalMarks} onChange={e => setTotalMarks(parseInt(e.target.value))} min={1} required className="w-full border-slate-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" />
                         </div>
+                    </div>
+                     {/* Policies */}
+                     <div className="pt-4 border-t space-y-4">
+                         <label className="flex items-center space-x-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={allowRetakes}
+                                onChange={e => setAllowRetakes(e.target.checked)}
+                                className="h-5 w-5 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                            />
+                            <span className="font-medium text-slate-700">Allow Retakes</span>
+                        </label>
+                        {allowRetakes && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pl-8">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Max Attempts</label>
+                                    <input type="number" value={maxAttempts} onChange={e => setMaxAttempts(parseInt(e.target.value))} min={2} required className="w-full border-slate-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"/>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Passing Grade (%)</label>
+                                    <input type="number" value={passingGrade} onChange={e => setPassingGrade(parseInt(e.target.value))} min={1} max={100} required className="w-full border-slate-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"/>
+                                    <p className="text-xs text-slate-500 mt-1">Students must score below this to be eligible for a retake.</p>
+                                </div>
+                            </div>
+                        )}
+                        <label className="flex items-center space-x-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={shuffleQuestions}
+                                onChange={e => setShuffleQuestions(e.target.checked)}
+                                className="h-5 w-5 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                            />
+                            <span className="font-medium text-slate-700">Shuffle question order for each student</span>
+                        </label>
                     </div>
                      {/* Targeting */}
                      <div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, AttendanceRecord } from '../types';
+import { User, AttendanceRecord, Course, CourseRegistration } from '../types';
 import { MarkAttendance } from './MarkAttendance';
 import { AttendanceOverview } from './AttendanceOverview';
 
@@ -7,7 +7,9 @@ interface AttendanceViewProps {
     currentUser: User;
     allUsers: User[];
     records: AttendanceRecord[];
-    onSave: (recordsToSave: { studentId: string, status: 'Present' | 'Absent' | 'Late' }[], date: string) => void;
+    onSave: (recordsToSave: { studentId: string, status: 'Present' | 'Absent' | 'Late' }[], date: string, courseId: string) => void;
+    courses: Course[];
+    courseRegistrations: CourseRegistration[];
 }
 
 type AttendanceTab = 'mark' | 'overview';

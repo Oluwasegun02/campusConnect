@@ -26,7 +26,7 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogi
             email,
             password,
             role,
-            department,
+            department: role === UserRole.VISITOR ? 'N/A' : department,
             level: role === UserRole.STUDENT ? level : 0,
         });
     };
@@ -59,10 +59,11 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogi
                                 <option value={UserRole.STUDENT}>Student</option>
                                 <option value={UserRole.TEACHER}>Teacher</option>
                                 <option value={UserRole.ICT_STAFF}>ICT Staff</option>
+                                <option value={UserRole.VISITOR}>Visitor</option>
                             </select>
                         </div>
                         
-                        {role !== UserRole.ICT_STAFF && (
+                        {role !== UserRole.ICT_STAFF && role !== UserRole.VISITOR && (
                             <>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700">Department</label>
