@@ -17,6 +17,7 @@ export const ProductListingForm: React.FC<ProductListingFormProps> = ({ onClose,
     const [category, setCategory] = useState(listingToEdit?.category || '');
     const [condition, setCondition] = useState<ItemCondition>(listingToEdit?.condition || 'Used - Good');
     const [image, setImage] = useState<string | null>(listingToEdit?.image || null);
+    const [quantityAvailable, setQuantityAvailable] = useState<number | ''>(listingToEdit?.quantityAvailable || 1);
     
     const isEditMode = !!listingToEdit;
 
@@ -33,7 +34,7 @@ export const ProductListingForm: React.FC<ProductListingFormProps> = ({ onClose,
     
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (price === '' || !image) return;
+        if (price === '' || quantityAvailable === '' || !image) return;
         const listingData = {
             ...listingToEdit,
             title,
@@ -42,6 +43,7 @@ export const ProductListingForm: React.FC<ProductListingFormProps> = ({ onClose,
             category,
             condition,
             image,
+            quantityAvailable: Number(quantityAvailable),
         };
         onSave(listingData);
     };
@@ -72,11 +74,17 @@ export const ProductListingForm: React.FC<ProductListingFormProps> = ({ onClose,
                              <input type="text" value={category} onChange={e => setCategory(e.target.value)} placeholder="e.g., Books, Electronics" required className="w-full border-slate-300 rounded-md" />
                         </div>
                     </div>
-                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Condition</label>
-                        <select value={condition} onChange={e => setCondition(e.target.value as ItemCondition)} required className="w-full border-slate-300 rounded-md bg-white">
-                            {conditions.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Condition</label>
+                            <select value={condition} onChange={e => setCondition(e.target.value as ItemCondition)} required className="w-full border-slate-300 rounded-md bg-white">
+                                {conditions.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                             <label className="block text-sm font-medium text-slate-700 mb-1">Quantity Available</label>
+                            <input type="number" value={quantityAvailable} onChange={e => setQuantityAvailable(e.target.value === '' ? '' : Number(e.target.value))} min="1" required className="w-full border-slate-300 rounded-md" />
+                        </div>
                     </div>
                      <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Product Image</label>
@@ -86,6 +94,7 @@ export const ProductListingForm: React.FC<ProductListingFormProps> = ({ onClose,
                 </form>
                 <div className="p-6 border-t bg-slate-50 flex justify-end space-x-3">
                     <button type="button" onClick={onClose} className="bg-white px-4 py-2 rounded-md border">Cancel</button>
+
                     <button type="submit" onClick={handleSubmit} className="bg-primary-600 text-white px-4 py-2 rounded-md">{isEditMode ? 'Save Changes' : 'Create Listing'}</button>
                 </div>
             </div>

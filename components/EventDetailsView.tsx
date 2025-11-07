@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { User, Event, EventRegistration, RegisteredService, EventBooking, ServiceCategory, EventTicketPurchase } from '../types';
+import { User, Event, EventRegistration, RegisteredService, ServiceBooking, ServiceCategory, EventTicketPurchase } from '../types';
 import { XIcon, GlobeAltIcon, MapPinIcon, UserGroupIcon, VideoCameraIcon, TicketIcon, PlusCircleIcon, CheckCircleIcon } from '../constants';
 
 interface EventDetailsViewProps {
@@ -8,12 +8,12 @@ interface EventDetailsViewProps {
     registrations: EventRegistration[];
     ticketPurchases: EventTicketPurchase[];
     services: RegisteredService[];
-    bookings: EventBooking[];
+    bookings: ServiceBooking[];
     onClose: () => void;
     onRegister: (eventId: string) => void;
     onBookService: (event: Event, service: RegisteredService, details: any) => void;
     onInitiateTicketPurchase: (event: Event, quantity: number) => void;
-    setActiveView: (view: string) => void;
+    setActiveView: (view: string, context?: { groupId?: string }) => void;
 }
 
 const ServiceBooking: React.FC<{ service: RegisteredService; onBook: (details: any) => void }> = ({ service, onBook }) => {
@@ -59,7 +59,9 @@ export const EventDetailsView: React.FC<EventDetailsViewProps> = (props) => {
     }, [services]);
 
     const handleJoinChat = () => {
-        setActiveView('chat');
+        if (event.chatGroupId) {
+            setActiveView('chat', { groupId: event.chatGroupId });
+        }
         onClose();
     };
     
@@ -143,7 +145,7 @@ export const EventDetailsView: React.FC<EventDetailsViewProps> = (props) => {
                     
                     {isRegisteredOrHasTicket && (
                          <div className="pt-4 border-t">
-                             <h4 className="text-lg font-bold text-slate-700 mb-2">Book Services</h4>
+                             <h4 className="text-lg font-bold text-slate-700 mb-2">Book Event Services</h4>
                              <div className="border-b border-slate-200">
                                 <nav className="-mb-px flex space-x-6" aria-label="Tabs">
                                     {(['Food', 'Ride', 'Merchandise', 'Photography'] as ServiceCategory[]).map(cat => (

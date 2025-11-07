@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { User, MarketplaceListing } from '../types';
 import { SearchIcon, ChatBubbleOvalLeftEllipsisIcon } from '../constants';
 import { SellerDashboard } from './SellerDashboard';
@@ -12,7 +12,9 @@ interface MarketplaceViewProps {
     onCreateListing: () => void;
     onDeleteListing: (listingId: string) => void;
     onEditListing: (listing: MarketplaceListing) => void;
-    setActiveView: (view: string) => void;
+    setActiveView: (view: string, context?: { groupId?: string }) => void;
+    initialSearch?: string;
+    onDidUseInitialSearch?: () => void;
 }
 
 const ProductCard: React.FC<{ listing: MarketplaceListing; onPurchase: () => void; onMessageSeller: () => void; isOwner: boolean; }> = ({ listing, onPurchase, onMessageSeller, isOwner }) => (
@@ -29,6 +31,9 @@ const ProductCard: React.FC<{ listing: MarketplaceListing; onPurchase: () => voi
                 </button>
             </div>
              <span className="absolute top-2 right-2 bg-slate-800/60 text-white text-xs font-semibold px-2 py-1 rounded-full">{listing.condition}</span>
+             {listing.isAvailable && listing.quantityAvailable <= 5 && (
+                <span className="absolute top-2 left-2 bg-yellow-400/80 text-yellow-900 text-xs font-bold px-2 py-1 rounded-full">Only {listing.quantityAvailable} left!</span>
+             )}
         </div>
         <div className="p-4 flex-grow flex flex-col">
             <h3 className="text-lg font-bold text-slate-800 truncate">{listing.title}</h3>
@@ -50,10 +55,17 @@ const ProductCard: React.FC<{ listing: MarketplaceListing; onPurchase: () => voi
 );
 
 
-export const MarketplaceView: React.FC<MarketplaceViewProps> = ({ currentUser, listings, onPurchase, onApplySeller, onCreateListing, onDeleteListing, onEditListing, setActiveView }) => {
-    const [searchTerm, setSearchTerm] = useState('');
+export const MarketplaceView: React.FC<MarketplaceViewProps> = ({ currentUser, listings, onPurchase, onApplySeller, onCreateListing, onDeleteListing, onEditListing, setActiveView, initialSearch, onDidUseInitialSearch }) => {
+    const [searchTerm, setSearchTerm] = useState(initialSearch || '');
     const [category, setCategory] = useState('All');
     const [activeTab, setActiveTab] = useState<'browse' | 'dashboard'>('browse');
+
+    useEffect(() => {
+        if (initialSearch && onDidUseInitialSearch) {
+            setSearchTerm(initialSearch);
+            onDidUseInitialSearch();
+        }
+    }, [initialSearch, onDidUseInitialSearch]);
 
     const categories = useMemo(() => ['All', ...Array.from(new Set(listings.map(l => l.category)))], [listings]);
     
@@ -70,8 +82,8 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({ currentUser, l
 
     const handleMessageSeller = async (sellerId: string, listing: MarketplaceListing) => {
         if (currentUser.id === sellerId) return;
-        await api.getOrCreatePrivateChat(currentUser.id, sellerId, listing);
-        setActiveView('chat');
+        const groupId = await api.getOrCreatePrivateChat(currentUser.id, sellerId, listing);
+        setActiveView('chat', { groupId });
     };
 
     return (

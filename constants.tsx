@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, UserRole, ChatGroup, ChatMessage, Course, FeeStatement, Hostel, Room, UserWallet, Exam, ExamSubmission, AssignmentType, ObjectiveQuestion, MarketplaceListing, Event, RegisteredService, LibraryBook, BookRequest, BookReview, EventTicketPurchase } from './types';
+import { User, UserRole, ChatGroup, ChatMessage, Course, FeeStatement, Hostel, Room, UserWallet, Exam, ExamSubmission, AssignmentType, ObjectiveQuestion, MarketplaceListing, Event, RegisteredService, LibraryBook, BookRequest, BookReview, EventTicketPurchase, Assignment, AssignmentPriority, TheoryQuestion } from './types';
 
 // Icons
 // Fix: Make className prop required to avoid type inference issues with children.
@@ -93,6 +93,7 @@ export const ChatBubbleOvalLeftEllipsisIcon = ({ className = 'w-6 h-6', title }:
 export const GlobeAltIcon = ({ className = 'w-6 h-6', title }: { className?: string, title?: string }) => <Icon className={className} title={title}><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m-15.432 0A8.959 8.959 0 013 12c0-.778.099-1.533.284-2.253m15.432 0L12 10.5" /></svg></Icon>;
 export const MapPinIcon = ({ className = 'w-6 h-6', title }: { className?: string, title?: string }) => <Icon className={className} title={title}><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /></svg></Icon>;
 export const SparklesIcon = ({ className = 'w-6 h-6', title }: { className?: string, title?: string }) => <Icon className={className} title={title}><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM18 13.5l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 18l-1.035.259a3.375 3.375 0 00-2.456 2.456L18 21.75l-.259-1.035a3.375 3.375 0 00-2.456-2.456L14.25 18l1.035-.259a3.375 3.375 0 002.456-2.456L18 13.5z" /></svg></Icon>;
+export const WrenchScrewdriverIcon = ({ className = 'w-6 h-6', title }: { className?: string, title?: string }) => <Icon className={className} title={title}><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.528-1.036.92-2.17.92-3.375 0-3.042-2.458-5.5-5.5-5.5S3.5 5.958 3.5 9c0 1.206.392 2.34.92 3.375l2.496 3.03M11.42 15.17L15.17 11.42" /></svg></Icon>;
 // New Icons for Library
 export const LightBulbIcon = ({ className = 'w-6 h-6', title }: { className?: string, title?: string }) => <Icon className={className} title={title}><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.311a15.045 15.045 0 01-7.5 0C4.508 17.64 2.25 14.434 2.25 10.5 2.25 6.25 6.25 2.25 10.5 2.25c4.25 0 8.25 4 8.25 8.25 0 3.934-2.258 7.14-5.25 8.25z" /></svg></Icon>;
 // Fix: Explicitly type StarIcon as a React.FC to allow the 'key' prop when used in lists.
@@ -142,10 +143,46 @@ export const MOCK_CHAT_MESSAGES: ChatMessage[] = [
 ];
 
 export const MOCK_COURSES: Course[] = [
-    { id: 'cs301', code: 'CS 301', title: 'Data Structures', description: 'Fundamental data structures and algorithms.', department: 'Computer Science', level: 300, credits: 3 },
-    { id: 'cs302', code: 'CS 302', title: 'Operating Systems', description: 'Core concepts of modern operating systems.', department: 'Computer Science', level: 300, credits: 3 },
-    { id: 'ee201', code: 'EE 201', title: 'Circuit Analysis', description: 'Analysis of analog electronic circuits.', department: 'Electrical Engineering', level: 200, credits: 4 },
+    { id: 'cs301', creatorId: 'teach1', code: 'CS301', title: 'Data Structures', description: 'Fundamental data structures and algorithms.', department: 'Computer Science', level: 300, credits: 3 },
+    { id: 'cs302', creatorId: 'teach1', code: 'CS302', title: 'Operating Systems', description: 'Core concepts of modern operating systems.', department: 'Computer Science', level: 300, credits: 3 },
+    { id: 'ee201', creatorId: 'teach2', code: 'EE201', title: 'Circuit Analysis', description: 'Analysis of analog electronic circuits.', department: 'Electrical Engineering', level: 200, credits: 4 },
 ];
+
+const futureDate = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+
+export const MOCK_ASSIGNMENTS: Assignment[] = [
+    {
+        id: 'asg1',
+        title: 'Data Structures: Lab 1',
+        description: 'Implement a linked list with basic operations.',
+        type: AssignmentType.THEORY,
+        theoryQuestions: [{ id: 'tq1', questionText: 'Provide the Python code for a singly linked list class.', marks: 25, rubric: [] }],
+        objectiveQuestions: [],
+        dueDate: futureDate(7),
+        creatorId: 'teach1',
+        creatorName: 'Prof. Davis',
+        targetDepartments: ['Computer Science'],
+        targetLevels: [300],
+        totalMarks: 25,
+        priority: AssignmentPriority.HIGH,
+    },
+    {
+        id: 'asg2',
+        title: 'Circuit Analysis Quiz',
+        description: 'A quick quiz on Ohm\'s law and Kirchhoff\'s laws.',
+        type: AssignmentType.OBJECTIVE,
+        objectiveQuestions: [{ id: 'oq1', questionText: 'If V=12V and R=4Ω, what is I?', options: ['3A', '4A', '12A'], correctAnswerIndex: 0 }],
+        theoryQuestions: [],
+        dueDate: futureDate(3),
+        creatorId: 'teach2',
+        creatorName: 'Dr. Miller',
+        targetDepartments: ['Electrical Engineering'],
+        targetLevels: [200],
+        totalMarks: 10,
+        priority: AssignmentPriority.MEDIUM,
+    }
+];
+
 
 export const MOCK_FEE_STATEMENTS: FeeStatement[] = [
     {
@@ -248,6 +285,7 @@ export const MOCK_EXAMS: Exam[] = [
     description: 'Covers topics from week 1 to 6.',
     type: AssignmentType.OBJECTIVE,
     questions: MOCK_EXAM_QUESTIONS,
+    courseCode: 'CS301',
     startTime: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
     endTime: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
     durationMinutes: 45,
@@ -269,6 +307,7 @@ export const MOCK_EXAMS: Exam[] = [
     description: 'Comprehensive final examination.',
     type: AssignmentType.OBJECTIVE,
     questions: MOCK_EXAM_QUESTIONS,
+    courseCode: 'EE201',
     startTime: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
     endTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
     durationMinutes: 120,
@@ -315,8 +354,8 @@ export const MOCK_EXAM_SUBMISSIONS: ExamSubmission[] = [
 MOCK_EXAM_SUBMISSIONS[1].grade = 45;
 
 export const MOCK_MARKETPLACE_LISTINGS: MarketplaceListing[] = [
-    { id: 'm-1', sellerId: 'teach1', sellerName: 'Prof. Davis', title: 'Used Data Structures Textbook', description: 'Slightly used, 4th edition. Perfect for CS301.', price: 45.00, category: 'Books', image: 'https://via.placeholder.com/300x200.png?text=Textbook', condition: 'Used - Good', createdAt: new Date().toISOString(), isAvailable: true },
-    { id: 'm-2', sellerId: 'stud1', sellerName: 'Alice Johnson', title: 'Scientific Calculator', description: 'Barely used Casio scientific calculator. Works perfectly.', price: 15.00, category: 'Electronics', image: 'https://via.placeholder.com/300x200.png?text=Calculator', condition: 'Used - Like New', createdAt: new Date().toISOString(), isAvailable: true },
+    { id: 'm-1', sellerId: 'teach1', sellerName: 'Prof. Davis', title: 'Used Data Structures Textbook', description: 'Slightly used, 4th edition. Perfect for CS301.', price: 45.00, category: 'Books', image: 'https://via.placeholder.com/300x200.png?text=Textbook', condition: 'Used - Good', createdAt: new Date().toISOString(), isAvailable: true, quantityAvailable: 5 },
+    { id: 'm-2', sellerId: 'stud1', sellerName: 'Alice Johnson', title: 'Scientific Calculator', description: 'Barely used Casio scientific calculator. Works perfectly.', price: 15.00, category: 'Electronics', image: 'https://via.placeholder.com/300x200.png?text=Calculator', condition: 'Used - Like New', createdAt: new Date().toISOString(), isAvailable: true, quantityAvailable: 1 },
 ];
 
 export const MOCK_EVENTS: Event[] = [
@@ -348,9 +387,9 @@ export const MOCK_EVENTS: Event[] = [
 ];
 
 export const MOCK_REGISTERED_SERVICES: RegisteredService[] = [
-    { id: 'serv-1', providerId: 'stud2', providerName: 'Bob Williams', serviceName: 'Event Ride Service', description: 'Safe and reliable rides to and from the event venue.', price: 10, category: 'Ride', status: 'Approved' },
-    { id: 'serv-2', providerId: 'landlord1', providerName: 'Campus Foods', serviceName: 'Event Catering Pack', description: 'Pre-order a meal pack with a burger, fries, and a drink.', price: 15, category: 'Food', status: 'Approved' },
-    { id: 'serv-3', providerId: 'stud3', providerName: 'Charlie Brown', serviceName: 'Event Transport', description: 'I can drive up to 3 people.', price: 8, category: 'Ride', status: 'Pending' },
+    { id: 'serv-1', providerId: 'stud2', providerName: 'Bob Williams', serviceName: 'Campus Ride Service', description: 'Safe and reliable rides anywhere on or near campus.', price: 10, category: 'Ride', status: 'Approved' },
+    { id: 'serv-2', providerId: 'landlord1', providerName: 'Campus Foods', serviceName: 'Burger Meal Deal', description: 'Pre-order a meal pack with a burger, fries, and a drink for pickup.', price: 15, category: 'Food', status: 'Approved' },
+    { id: 'serv-3', providerId: 'stud3', providerName: 'Charlie Brown', serviceName: 'Event Transport', description: 'I can drive up to 3 people to any event.', price: 8, category: 'Ride', status: 'Pending' },
 ];
 
 export const MOCK_TICKET_PURCHASES: EventTicketPurchase[] = [];

@@ -7,7 +7,8 @@ type UserData = Omit<User, 'id'>;
 
 interface UserCreatorProps {
     onClose: () => void;
-    onCreateUser: (userData: UserData) => boolean; // Returns success status
+    // FIX: Update prop type to allow an async function that returns a Promise of a boolean.
+    onCreateUser: (userData: UserData) => Promise<boolean>; // Returns success status
 }
 
 export const UserCreator: React.FC<UserCreatorProps> = ({ onClose, onCreateUser }) => {
@@ -18,7 +19,8 @@ export const UserCreator: React.FC<UserCreatorProps> = ({ onClose, onCreateUser 
     const [level, setLevel] = useState(LEVELS[0]);
     const [error, setError] = useState<string | null>(null);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    // FIX: Make handleSubmit async to await the result of the async `onCreateUser` function.
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
         
@@ -27,7 +29,7 @@ export const UserCreator: React.FC<UserCreatorProps> = ({ onClose, onCreateUser 
             return;
         }
 
-        const success = onCreateUser({
+        const success = await onCreateUser({
             name,
             email,
             password: 'password123', // Set a default password

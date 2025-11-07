@@ -120,7 +120,7 @@ export const PaymentPortal: React.FC<PaymentPortalProps> = ({ currentUser, feeSt
                                             <tr key={order.id}>
                                                 <td className="py-4">
                                                     <p className="font-medium text-slate-800">{order.listingTitle}</p>
-                                                    <p className="text-sm text-slate-500">Ordered on {new Date(order.orderedAt).toLocaleDateString()}</p>
+                                                    <p className="text-sm text-slate-500">Sold by {order.sellerName} on {new Date(order.orderedAt).toLocaleDateString()}</p>
                                                 </td>
                                                 <td className="py-4 text-right text-lg font-bold text-slate-800">
                                                     ${order.amount.toFixed(2)}

@@ -105,6 +105,7 @@ export interface Exam {
   description: string;
   type: AssignmentType; // Re-use this enum (Theory/Objective)
   questions: ObjectiveQuestion[];
+  courseCode: string; // Link to a course
   startTime: string; // ISO string
   endTime: string;   // ISO string
   durationMinutes: number;
@@ -145,6 +146,7 @@ export interface ChatGroup {
   isPrivate?: boolean;
   members?: string[]; // [userId1, userId2]
   relatedListingId?: string; // Link to marketplace item
+  relatedServiceId?: string; // Link to service
 }
 
 export interface ChatMessage {
@@ -173,6 +175,7 @@ export interface AttendanceRecord {
 // New types for Course Registration
 export interface Course {
   id: string;
+  creatorId: string;
   code: string; // e.g., CS301
   title: string;
   description: string;
@@ -305,6 +308,7 @@ export interface MarketplaceListing {
   condition: ItemCondition; // New field for item condition
   createdAt: string; // ISO String
   isAvailable: boolean;
+  quantityAvailable: number;
 }
 
 export interface MarketplaceOrder {
@@ -313,6 +317,7 @@ export interface MarketplaceOrder {
   listingId: string;
   listingTitle: string;
   sellerId: string;
+  sellerName: string;
   amount: number;
   orderedAt: string; // ISO String
 }
@@ -363,9 +368,9 @@ export interface RegisteredService {
   status: 'Pending' | 'Approved' | 'Rejected';
 }
 
-export interface EventBooking {
+export interface ServiceBooking {
   id: string;
-  eventId: string;
+  eventId?: string; // Now optional
   userId: string;
   serviceId: string;
   details: any; // e.g., { quantity: 2 } for tickets

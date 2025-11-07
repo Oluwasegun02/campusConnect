@@ -51,23 +51,33 @@ export const AssignmentTaker: React.FC<AssignmentTakerProps> = ({ assignment, st
         return `${d > 0 ? `${d}d ` : ''}${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     };
 
+    // FIX: Refactor state updates to handle the union type `number[] | TheoryAnswer[]` correctly,
+    // ensuring type safety and immutability.
     const handleAnswerChange = (index: number, value: string | number) => {
-        const newAnswers = [...answers];
         if (assignment.type === AssignmentType.THEORY) {
-            (newAnswers as TheoryAnswer[])[index].text = value as string;
+            setAnswers(prev => {
+                const newAnswers = [...(prev as TheoryAnswer[])];
+                newAnswers[index] = { ...newAnswers[index], text: value as string };
+                return newAnswers;
+            });
         } else {
-            (newAnswers as number[])[index] = value as number;
+            setAnswers(prev => {
+                const newAnswers = [...(prev as number[])];
+                newAnswers[index] = value as number;
+                return newAnswers;
+            });
         }
-        setAnswers(newAnswers);
     };
 
     const handleImageUpload = (index: number, file: File) => {
         if (file && file.type.startsWith('image/') && assignment.type === AssignmentType.THEORY) {
             const reader = new FileReader();
             reader.onload = (e) => {
-                const newAnswers = [...answers] as TheoryAnswer[];
-                newAnswers[index].image = e.target?.result as string;
-                setAnswers(newAnswers);
+                setAnswers(prev => {
+                    const newAnswers = [...(prev as TheoryAnswer[])];
+                    newAnswers[index] = { ...newAnswers[index], image: e.target?.result as string };
+                    return newAnswers;
+                });
             };
             reader.readAsDataURL(file);
         } else {
@@ -79,11 +89,16 @@ export const AssignmentTaker: React.FC<AssignmentTakerProps> = ({ assignment, st
         if (file && assignment.type === AssignmentType.THEORY) {
             try {
                 const fileData = await fileToBase64(file);
-                const newAnswers = [...answers] as TheoryAnswer[];
-                newAnswers[index].fileData = fileData;
-                newAnswers[index].fileName = file.name;
-                newAnswers[index].fileType = file.type;
-                setAnswers(newAnswers);
+                setAnswers(prev => {
+                    const newAnswers = [...(prev as TheoryAnswer[])];
+                    newAnswers[index] = { 
+                        ...newAnswers[index],
+                        fileData: fileData,
+                        fileName: file.name,
+                        fileType: file.type
+                    };
+                    return newAnswers;
+                });
             } catch (error) {
                 console.error("Failed to read file:", error);
                 alert("Sorry, there was an error uploading your file.");

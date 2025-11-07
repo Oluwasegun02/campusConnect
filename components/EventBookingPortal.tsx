@@ -1,17 +1,24 @@
-import React, { useState, useMemo } from 'react';
-import { User, Event, EventRegistration, RegisteredService, EventTicketPurchase } from '../types';
-import { PlusCircleIcon, SparklesIcon, GlobeAltIcon, MapPinIcon, CheckCircleIcon } from '../constants';
+import React, { useState, useMemo, useEffect } from 'react';
+import { User, Event, EventRegistration, RegisteredService, ServiceBooking, ServiceCategory, EventTicketPurchase } from '../types';
+import { XIcon, GlobeAltIcon, MapPinIcon, UserGroupIcon, VideoCameraIcon, TicketIcon, PlusCircleIcon, CheckCircleIcon, SparklesIcon, SearchIcon, ChatBubbleOvalLeftEllipsisIcon } from '../constants';
+import * as api from '../api/mockApi';
 
-interface EventBookingPortalProps {
+interface EventPortalViewProps {
     currentUser: User;
     events: Event[];
     registrations: EventRegistration[];
     ticketPurchases: EventTicketPurchase[];
     services: RegisteredService[];
+    bookings: ServiceBooking[];
     onRegisterForEvent: (eventId: string) => void;
     onViewDetails: (event: Event) => void;
     onCreateEvent: () => void;
     onRegisterService: () => void;
+    onBookServiceNoEvent: (service: RegisteredService) => void;
+    setActiveView: (view: string, context?: { groupId?: string }) => void;
+    initialSearch?: string;
+    initialTab?: 'browse-events' | 'browse-services';
+    onDidUseInitialSearch?: () => void;
 }
 
 const EventCard: React.FC<{ event: Event; onAction: () => void; onViewDetails: () => void; isRegisteredOrHasTicket: boolean; }> = ({ event, onAction, onViewDetails, isRegisteredOrHasTicket }) => {
@@ -51,8 +58,50 @@ const EventCard: React.FC<{ event: Event; onAction: () => void; onViewDetails: (
     );
 };
 
-export const EventBookingPortal: React.FC<EventBookingPortalProps> = ({ currentUser, events, registrations, ticketPurchases, services, onRegisterForEvent, onViewDetails, onCreateEvent, onRegisterService }) => {
-    const [activeTab, setActiveTab] = useState<'browse' | 'registered'>('browse');
+const ServiceCard: React.FC<{ service: RegisteredService; onBook: () => void; onMessage: () => void; isOwner: boolean; }> = ({ service, onBook, onMessage, isOwner }) => {
+    return (
+        <div className="bg-white rounded-lg shadow-md overflow-hidden flex flex-col group p-4">
+            <h3 className="text-lg font-bold text-slate-800">{service.serviceName}</h3>
+            <p className="text-sm text-slate-500">by {service.providerName}</p>
+            <p className="text-sm text-slate-600 mt-2 flex-grow">{service.description}</p>
+            <div className="flex justify-between items-end mt-4">
+                <p className="text-2xl font-bold text-primary-600">${service.price.toFixed(2)}</p>
+                <div className="flex items-center gap-2">
+                     <button 
+                        onClick={onMessage}
+                        disabled={isOwner}
+                        className="p-2 text-slate-500 hover:bg-slate-100 hover:text-primary-600 rounded-full transition-colors disabled:opacity-50"
+                        title="Message Provider"
+                    >
+                        <ChatBubbleOvalLeftEllipsisIcon className="w-6 h-6"/>
+                    </button>
+                    <button 
+                        onClick={onBook}
+                        disabled={isOwner}
+                        className="bg-primary-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-primary-700 disabled:bg-slate-400"
+                    >
+                        {isOwner ? "Your Service" : "Book"}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
+export const EventPortalView: React.FC<EventPortalViewProps> = (props) => {
+    const { currentUser, events, registrations, ticketPurchases, services, onRegisterForEvent, onViewDetails, onCreateEvent, onRegisterService, onBookServiceNoEvent, setActiveView, initialSearch, initialTab, onDidUseInitialSearch } = props;
+    const [activeTab, setActiveTab] = useState<'browse-events' | 'my-events' | 'browse-services'>(initialTab || 'browse-events');
+    const [searchTerm, setSearchTerm] = useState(initialSearch || '');
+    const [serviceCategory, setServiceCategory] = useState<ServiceCategory | 'All'>('All');
+
+     useEffect(() => {
+        if ((initialSearch || (initialTab && initialTab !== 'browse-events')) && onDidUseInitialSearch) {
+            setActiveTab(initialTab || 'browse-services');
+            setSearchTerm(initialSearch || '');
+            onDidUseInitialSearch();
+        }
+    }, [initialSearch, initialTab, onDidUseInitialSearch]);
 
     const userEvents = useMemo(() => {
         const registrationIds = new Set(registrations.filter(r => r.userId === currentUser.id).map(r => r.eventId));
@@ -69,9 +118,25 @@ export const EventBookingPortal: React.FC<EventBookingPortalProps> = ({ currentU
              if (p.userId === currentUser.id) map.set(p.eventId, true);
         });
         return map;
-    }, [registrations, ticketPurchases, currentUser.id]);
+    }, [registrations, ticketPurchases, currentUser]);
 
-    const TabButton: React.FC<{tabId: 'browse' | 'registered', children: React.ReactNode}> = ({ tabId, children }) => (
+    const approvedServices = useMemo(() => services.filter(s => s.status === 'Approved'), [services]);
+    const serviceCategories: (ServiceCategory | 'All')[] = useMemo(() => ['All', ...Array.from(new Set(approvedServices.map(s => s.category)))], [approvedServices]);
+
+    const filteredServices = useMemo(() => {
+        return approvedServices.filter(s => 
+            (s.serviceName.toLowerCase().includes(searchTerm.toLowerCase()) || s.description.toLowerCase().includes(searchTerm.toLowerCase())) &&
+            (serviceCategory === 'All' || s.category === serviceCategory)
+        );
+    }, [approvedServices, searchTerm, serviceCategory]);
+
+    const handleMessageProvider = async (service: RegisteredService) => {
+        if (currentUser.id === service.providerId) return;
+        const groupId = await api.getOrCreatePrivateChatForService(currentUser.id, service.providerId, service);
+        setActiveView('chat', { groupId });
+    };
+
+    const TabButton: React.FC<{tabId: typeof activeTab, children: React.ReactNode}> = ({ tabId, children }) => (
         <button onClick={() => setActiveTab(tabId)} className={`px-4 py-2 text-sm font-medium rounded-full transition-colors ${activeTab === tabId ? 'bg-primary-600 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'}`}>{children}</button>
     );
 
@@ -87,7 +152,7 @@ export const EventBookingPortal: React.FC<EventBookingPortalProps> = ({ currentU
     return (
         <div className="space-y-8">
             <div className="flex justify-between items-center">
-                <h2 className="text-3xl font-bold text-slate-800">Event & Booking Portal</h2>
+                <h2 className="text-3xl font-bold text-slate-800">Events & Services</h2>
                 <div className="flex items-center gap-4">
                     <button onClick={onRegisterService} className="bg-white border border-primary-500 text-primary-600 px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-primary-50 transition">
                         <PlusCircleIcon className="w-5 h-5"/>
@@ -101,12 +166,27 @@ export const EventBookingPortal: React.FC<EventBookingPortalProps> = ({ currentU
             </div>
 
             <div className="flex items-center space-x-2 bg-slate-100 p-1 rounded-full self-start">
-                <TabButton tabId="browse">Browse All Events</TabButton>
-                <TabButton tabId="registered">My Events</TabButton>
+                <TabButton tabId="browse-events">Browse Events</TabButton>
+                <TabButton tabId="my-events">My Events</TabButton>
+                <TabButton tabId="browse-services">Browse Services</TabButton>
             </div>
             
+            {activeTab === 'browse-services' && (
+                 <div className="flex flex-col md:flex-row justify-between items-center gap-4 p-4 bg-white rounded-lg shadow-sm border">
+                    <div className="relative w-full md:w-2/5">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><SearchIcon className="w-5 h-5 text-slate-400" /></div>
+                        <input type="text" placeholder="Search for services..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-full"/>
+                    </div>
+                    <div className="flex items-center space-x-2 overflow-x-auto pb-2">
+                       {serviceCategories.map(cat => (
+                            <button key={cat} onClick={() => setServiceCategory(cat)} className={`px-4 py-2 text-sm font-medium rounded-full transition-colors whitespace-nowrap ${serviceCategory === cat ? 'bg-primary-600 text-white' : 'bg-white text-slate-700 hover:bg-slate-50 border'}`}>{cat}</button>
+                       ))}
+                    </div>
+                </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {activeTab === 'browse' && events.map(event => (
+                {activeTab === 'browse-events' && events.map(event => (
                     <EventCard 
                         key={event.id}
                         event={event}
@@ -115,7 +195,7 @@ export const EventBookingPortal: React.FC<EventBookingPortalProps> = ({ currentU
                         isRegisteredOrHasTicket={eventStatusMap.has(event.id)}
                     />
                 ))}
-                 {activeTab === 'registered' && userEvents.map(event => (
+                 {activeTab === 'my-events' && userEvents.map(event => (
                     <EventCard 
                         key={event.id}
                         event={event}
@@ -124,9 +204,19 @@ export const EventBookingPortal: React.FC<EventBookingPortalProps> = ({ currentU
                         isRegisteredOrHasTicket={true}
                     />
                 ))}
+                 {activeTab === 'browse-services' && filteredServices.map(service => (
+                    <ServiceCard
+                        key={service.id}
+                        service={service}
+                        onBook={() => onBookServiceNoEvent(service)}
+                        onMessage={() => handleMessageProvider(service)}
+                        isOwner={service.providerId === currentUser.id}
+                    />
+                ))}
             </div>
-            {activeTab === 'browse' && events.length === 0 && <p className="text-slate-500 text-center col-span-full py-12">No events scheduled right now.</p>}
-            {activeTab === 'registered' && userEvents.length === 0 && <p className="text-slate-500 text-center col-span-full py-12">You have not registered for any events.</p>}
+            {activeTab === 'browse-events' && events.length === 0 && <p className="text-slate-500 text-center col-span-full py-12">No events scheduled right now.</p>}
+            {activeTab === 'my-events' && userEvents.length === 0 && <p className="text-slate-500 text-center col-span-full py-12">You have not registered for any events.</p>}
+            {activeTab === 'browse-services' && filteredServices.length === 0 && <p className="text-slate-500 text-center col-span-full py-12">No services found.</p>}
         </div>
     );
 };

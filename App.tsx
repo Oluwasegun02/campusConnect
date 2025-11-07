@@ -1,14 +1,14 @@
 
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { User, UserRole, Assignment, Submission, Exam, ExamSubmission, AssignmentType, AssignmentPriority, ChatGroup, ChatMessage, AttendanceRecord, Course, CourseRegistration, FeeStatement, PaymentRecord, Hostel, Room, AccommodationApplication, CourseMaterial, UserWallet, WalletTransaction, MarketplaceListing, MarketplaceOrder, Event, EventRegistration, RegisteredService, EventBooking, LibraryBook, ReadingProgress, VisitorPayment, BookRequest, BookReview, EventTicketPurchase } from './types';
+import { User, UserRole, Assignment, Submission, Exam, ExamSubmission, AssignmentType, AssignmentPriority, ChatGroup, ChatMessage, AttendanceRecord, Course, CourseRegistration, FeeStatement, PaymentRecord, Hostel, Room, AccommodationApplication, CourseMaterial, UserWallet, WalletTransaction, MarketplaceListing, MarketplaceOrder, Event, EventRegistration, RegisteredService, ServiceBooking, LibraryBook, ReadingProgress, VisitorPayment, BookRequest, BookReview, EventTicketPurchase } from './types';
 import * as api from './api/mockApi';
 import {
     HomeIcon, ClipboardListIcon, AcademicCapIcon, UserGroupIcon, LogoutIcon,
     PlusCircleIcon, BookOpenIcon, XIcon, CheckCircleIcon, PencilIcon, ClockIcon,
     ChatBubbleLeftRightIcon, CalendarDaysIcon, Cog6ToothIcon, DocumentPlusIcon,
     CreditCardIcon, SearchIcon, TrashIcon, BuildingOfficeIcon, DocumentArrowDownIcon,
-    UserCircleIcon, ShoppingCartIcon, MenuIcon
+    UserCircleIcon, ShoppingCartIcon, MenuIcon, WrenchScrewdriverIcon
 } from './constants';
 import { AssignmentCreator } from './components/AssignmentCreator';
 import { AssignmentTaker } from './components/AssignmentTaker';
@@ -35,7 +35,7 @@ import { HostelRegistrationForm } from './components/HostelRegistrationForm';
 import { ProfileView } from './components/ProfileView';
 import { MarketplaceView } from './components/MarketplaceView';
 import { ProductListingForm } from './components/ProductListingForm';
-import { EventBookingPortal } from './components/EventBookingPortal';
+import { EventPortalView } from './components/EventBookingPortal';
 import { EventCreator } from './components/EventCreator';
 import { ServiceRegistrationForm } from './components/ServiceRegistrationForm';
 import { EventDetailsView } from './components/EventDetailsView';
@@ -45,6 +45,9 @@ import { BookReader } from './components/BookReader';
 import { BookRequestForm } from './components/BookRequestForm';
 import { BookRequestManager } from './components/BookRequestManager';
 import { ChatSettingsModal } from './components/ChatSettingsModal';
+import { CourseCreator } from './components/CourseCreator';
+import { ServiceBookingModal } from './components/ServiceBookingModal';
+import { ExamsView } from './components/ExamsView';
 
 
 type PaymentDetails = {
@@ -81,7 +84,7 @@ const Sidebar: React.FC<{ role: UserRole; activeView: string; setActiveView: (vi
         { icon: HomeIcon, label: 'Dashboard' },
         { icon: BookOpenIcon, label: 'Library' },
         { icon: ChatBubbleLeftRightIcon, label: 'Chat' },
-        { icon: CalendarDaysIcon, label: 'Event/Booking' },
+        { icon: CalendarDaysIcon, label: 'Events' },
         { icon: ShoppingCartIcon, label: 'Marketplace' },
     ];
     
@@ -91,9 +94,9 @@ const Sidebar: React.FC<{ role: UserRole; activeView: string; setActiveView: (vi
             roleNav = [
                 { icon: ClipboardListIcon, label: 'Assignments' },
                 { icon: BookOpenIcon, label: 'Exams' },
+                { icon: DocumentPlusIcon, label: 'Course Registration' },
                 { icon: DocumentArrowDownIcon, label: 'Course Materials' },
                 { icon: CalendarDaysIcon, label: 'Attendance' },
-                { icon: UserGroupIcon, label: 'Students' }
             ];
             break;
         case UserRole.STUDENT:
@@ -108,6 +111,7 @@ const Sidebar: React.FC<{ role: UserRole; activeView: string; setActiveView: (vi
             break;
         case UserRole.ICT_STAFF:
              roleNav = [
+                { icon: DocumentPlusIcon, label: 'Course Registration' },
                 { icon: Cog6ToothIcon, label: 'Staff Portal'}
              ];
              break;
@@ -186,6 +190,21 @@ const FullScreenLoader: React.FC<{ message?: string }> = ({ message = "Loading C
     </div>
 );
 
+// Helper component for dashboard stats
+const StatCard: React.FC<{ icon: React.FC<{className?: string}>; label: string; value: string | number; onClick?: () => void; }> = ({ icon: Icon, label, value, onClick }) => (
+    <button 
+        onClick={onClick} 
+        disabled={!onClick}
+        className="bg-white p-6 rounded-lg shadow-md flex items-center space-x-4 hover:shadow-lg hover:scale-105 transition-transform disabled:hover:scale-100 disabled:cursor-default text-left"
+    >
+        <div className="p-3 bg-primary-100 rounded-full"><Icon className="w-8 h-8 text-primary-600"/></div>
+        <div>
+            <p className="text-slate-500">{label}</p>
+            <p className="text-3xl font-bold text-slate-800">{value}</p>
+        </div>
+    </button>
+);
+
 // Main App Component
 export default function App() {
     // Auth State
@@ -219,7 +238,7 @@ export default function App() {
     const [eventRegistrations, setEventRegistrations] = useState<EventRegistration[]>([]);
     const [eventTicketPurchases, setEventTicketPurchases] = useState<EventTicketPurchase[]>([]);
     const [registeredServices, setRegisteredServices] = useState<RegisteredService[]>([]);
-    const [eventBookings, setEventBookings] = useState<EventBooking[]>([]);
+    const [serviceBookings, setServiceBookings] = useState<ServiceBooking[]>([]);
     const [libraryBooks, setLibraryBooks] = useState<LibraryBook[]>([]);
     const [readingProgress, setReadingProgress] = useState<ReadingProgress[]>([]);
     const [visitorPayments, setVisitorPayments] = useState<VisitorPayment[]>([]);
@@ -232,11 +251,18 @@ export default function App() {
     const [assignmentSearchTerm, setAssignmentSearchTerm] = useState('');
     const [assignmentDateFilter, setAssignmentDateFilter] = useState('all');
     const [paymentModalData, setPaymentModalData] = useState<PaymentDetails | null>(null);
+    const [serviceBookingModalData, setServiceBookingModalData] = useState<RegisteredService | null>(null);
     const [isVideoCallActive, setIsVideoCallActive] = useState(false);
     const [isUserCreatorOpen, setIsUserCreatorOpen] = useState(false);
     const [manageAdminsModalGroup, setManageAdminsModalGroup] = useState<ChatGroup | null>(null);
     const [manageChatSettingsModalGroup, setManageChatSettingsModalGroup] = useState<ChatGroup | null>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    
+    // State for contextual navigation
+    const [initialActiveGroupId, setInitialActiveGroupId] = useState<string | null>(null);
+    const [initialMarketplaceSearch, setInitialMarketplaceSearch] = useState('');
+    const [initialEventSearch, setInitialEventSearch] = useState('');
+    const [initialEventTab, setInitialEventTab] = useState<'browse-events' | 'browse-services'>('browse-events');
 
 
     // Initial load: check if user is logged in
@@ -261,7 +287,7 @@ export default function App() {
                         chatGroupsData, chatMessagesData, attendanceData, coursesData,
                         registrationsData, feesData, paymentsData, hostelsData, roomsData, applicationsData,
                         materialsData, walletsData, transactionsData, listingsData, ordersData, eventsData,
-                        eventRegsData, ticketPurchasesData, registeredServicesData, eventBookingsData, libraryBooksData,
+                        eventRegsData, ticketPurchasesData, registeredServicesData, serviceBookingsData, libraryBooksData,
                         readingProgressData, visitorPaymentsData, bookRequestsData, bookReviewsData
                     ] = await Promise.all([
                         api.getUsers(), api.getAssignments(), api.getSubmissions(), api.getExams(), api.getExamSubmissions(),
@@ -270,7 +296,7 @@ export default function App() {
                         api.getHostels(), api.getRooms(), api.getAccommodationApplications(),
                         api.getCourseMaterials(), api.getWallets(), api.getWalletTransactions(),
                         api.getMarketplaceListings(), api.getMarketplaceOrders(), api.getEvents(),
-                        api.getEventRegistrations(), api.getEventTicketPurchases(), api.getRegisteredServices(), api.getEventBookings(),
+                        api.getEventRegistrations(), api.getEventTicketPurchases(), api.getRegisteredServices(), api.getServiceBookings(),
                         api.getLibraryBooks(), api.getReadingProgress(), api.getVisitorPayments(),
                         api.getBookRequests(), api.getBookReviews(),
                     ]);
@@ -298,7 +324,7 @@ export default function App() {
                     setEventRegistrations(eventRegsData);
                     setEventTicketPurchases(ticketPurchasesData);
                     setRegisteredServices(registeredServicesData);
-                    setEventBookings(eventBookingsData);
+                    setServiceBookings(serviceBookingsData);
                     setLibraryBooks(libraryBooksData);
                     setReadingProgress(readingProgressData);
                     setVisitorPayments(visitorPaymentsData);
@@ -316,6 +342,45 @@ export default function App() {
     }, [currentUser]);
 
     // --- HANDLERS ---
+    const handleSetActiveView = (view: string, context?: { groupId?: string }) => {
+        if (context?.groupId) {
+            setInitialActiveGroupId(context.groupId);
+        } else {
+            // Clear initial group if not navigating to chat, to prevent stale state
+            if(view !== 'chat') setInitialActiveGroupId(null);
+        }
+        setActiveView(view);
+    };
+
+    const handleViewEventDetails = (eventId: string) => {
+        const event = events.find(e => e.id === eventId);
+        if (event) {
+            setModal({ type: 'view-event', data: event });
+        }
+    };
+
+    const handleViewMarketplaceItem = (listingId: string) => {
+        const listing = marketplaceListings.find(l => l.id === listingId);
+        if (listing) {
+            setInitialMarketplaceSearch(listing.title);
+            setActiveView('marketplace');
+        } else {
+            setActiveView('marketplace');
+        }
+    };
+    
+    const handleViewService = (serviceId: string) => {
+        const service = registeredServices.find(s => s.id === serviceId);
+        if (service) {
+            setInitialEventSearch(service.serviceName);
+            setInitialEventTab('browse-services');
+            setActiveView('events');
+        } else {
+            setActiveView('events');
+        }
+    };
+
+
     const handleLogin = async (email: string, password: string) => {
         setAuthError(null);
         try {
@@ -402,7 +467,9 @@ export default function App() {
         if (exam && exam.type === AssignmentType.OBJECTIVE) {
             let correctAnswers = 0;
             exam.questions.forEach((q, i) => {
-                if (submission.answers[i] === q.correctAnswerIndex) {
+                // The student's answers need to be re-mapped to the original question index
+                const studentAnswerForQ = submission.answers[i];
+                if (studentAnswerForQ === q.correctAnswerIndex) {
                     correctAnswers++;
                 }
             });
@@ -466,8 +533,6 @@ export default function App() {
         }
     };
 
-// FIX: Update handleSaveAttendance to accept courseId, correctly create AttendanceRecord objects,
-// call the API with all required arguments, and correctly update local state.
     const handleSaveAttendance = async (recordsToSave: { studentId: string, status: 'Present' | 'Absent' | 'Late' }[], date: string, courseId: string) => {
         if (!currentUser) return;
         const newRecords: AttendanceRecord[] = recordsToSave.map(r => ({
@@ -601,11 +666,20 @@ export default function App() {
     };
 
     const handleInitiateBooking = (room: Room, duration: string, price: number) => {
+        const hostel = hostels.find(h => h.id === room.hostelId);
         setPaymentModalData({
             amount: price,
             description: `Booking for ${room.type} Room (${room.roomNumber}) for ${duration}`,
             type: 'payment',
-            metadata: { paymentType: 'accommodation', roomId: room.id, hostelId: room.hostelId, duration }
+            metadata: { 
+                paymentType: 'accommodation', 
+                roomId: room.id, 
+                hostelId: room.hostelId, 
+                duration,
+                hostelName: hostel?.name,
+                roomNumber: room.roomNumber,
+                roomType: room.type,
+             }
         });
     };
 
@@ -620,15 +694,37 @@ export default function App() {
     const handleInitiateMarketplacePayment = (listing: MarketplaceListing) => {
         setPaymentModalData({
             amount: listing.price,
-            description: `Purchase of "${listing.title}"`,
+            description: `Purchase: ${listing.title}`,
             type: 'payment',
-            metadata: { paymentType: 'marketplace', listingId: listing.id }
+            metadata: { 
+                paymentType: 'marketplace', 
+                listingId: listing.id,
+                listingTitle: listing.title,
+                sellerName: listing.sellerName,
+                sellerId: listing.sellerId,
+            }
         });
     };
 
-    const handleInitiateVisitorLibraryPayment = () => {
+    const handleInitiateTicketPurchase = (event: Event, quantity: number) => {
+        if (!event.ticketPrice) return;
         setPaymentModalData({
-            amount: 25, // Fixed library fee for visitors
+            amount: event.ticketPrice * quantity,
+            description: `Purchase ${quantity} ticket(s) for "${event.title}"`,
+            type: 'payment',
+            metadata: { 
+                paymentType: 'event_ticket', 
+                eventId: event.id, 
+                quantity,
+                eventTitle: event.title,
+                pricePerTicket: event.ticketPrice
+            }
+        });
+    };
+
+    const handleInitiateVisitorPayment = () => {
+        setPaymentModalData({
+            amount: 10, // Hardcoded fee
             description: `One-time library access fee`,
             type: 'payment',
             metadata: { paymentType: 'visitor_library_fee' }
@@ -639,55 +735,36 @@ export default function App() {
         if (!paymentModalData || !currentUser) return;
 
         const { amount, description, type, metadata } = paymentModalData;
-        const userWallet = wallets.find(w => w.userId === currentUser.id);
 
-        if (type === 'deposit') {
-            if (userWallet) {
-                const updatedWallet = { ...userWallet, balance: userWallet.balance + amount };
-                const newTransaction: WalletTransaction = {
-                    id: `txn-${Date.now()}`,
-                    walletId: userWallet.id,
-                    type: 'deposit',
-                    amount,
-                    description: `Deposit via ${method}`,
-                    timestamp: new Date().toISOString(),
-                };
-                const [updated] = await Promise.all([
-                    api.updateWallet(updatedWallet),
-                    api.createWalletTransaction(newTransaction)
-                ]);
-                setWallets(prev => prev.map(w => w.id === updated.id ? updated : w));
-                setWalletTransactions(prev => [...prev, newTransaction]);
+        // Wallet logic
+        if (method === 'wallet') {
+            const wallet = wallets.find(w => w.userId === currentUser.id);
+            if (!wallet || wallet.balance < amount) {
+                alert("Insufficient wallet balance.");
+                setPaymentModalData(null);
+                return;
             }
-        } else if (type === 'payment') {
-             if (method === 'wallet' && userWallet) {
-                if(userWallet.balance < amount) {
-                    alert("Insufficient wallet balance.");
-                    setPaymentModalData(null);
-                    return;
-                }
-                const updatedWallet = { ...userWallet, balance: userWallet.balance - amount };
-                const newTransaction: WalletTransaction = {
-                    id: `txn-${Date.now()}`,
-                    walletId: userWallet.id,
-                    type: 'payment',
-                    amount,
-                    description,
-                    timestamp: new Date().toISOString(),
-                };
-                 const [updated] = await Promise.all([
-                    api.updateWallet(updatedWallet),
-                    api.createWalletTransaction(newTransaction)
-                ]);
-                setWallets(prev => prev.map(w => w.id === updated.id ? updated : w));
-                setWalletTransactions(prev => [...prev, newTransaction]);
-            }
-            
-            // Handle accommodation booking
-            if (metadata?.paymentType === 'accommodation') {
-                const roomToUpdate = rooms.find(r => r.id === metadata.roomId);
-                if (roomToUpdate) {
-                    const updatedRoom = { ...roomToUpdate, isAvailable: false };
+            const updatedWallet: UserWallet = { ...wallet, balance: wallet.balance - amount };
+            await api.updateWallet(updatedWallet);
+            setWallets(prev => prev.map(w => w.id === updatedWallet.id ? updatedWallet : w));
+        }
+
+        // Transaction record
+        const newTransaction: WalletTransaction = {
+            id: `tx-${Date.now()}`,
+            walletId: currentUser.id,
+            type: type === 'deposit' ? 'deposit' : 'payment',
+            amount,
+            description,
+            timestamp: new Date().toISOString(),
+        };
+        const createdTx = await api.createWalletTransaction(newTransaction);
+        setWalletTransactions(prev => [...prev, createdTx]);
+        
+        // Handle metadata-specific logic
+        if (metadata) {
+            switch (metadata.paymentType) {
+                case 'accommodation':
                     const newApplication: AccommodationApplication = {
                         id: `app-${Date.now()}`,
                         studentId: currentUser.id,
@@ -698,183 +775,113 @@ export default function App() {
                         amountPaid: amount,
                         bookedAt: new Date().toISOString(),
                     };
-                    const [updatedR, createdApp] = await Promise.all([
-                        api.updateRoom(updatedRoom),
-                        api.createAccommodationApplication(newApplication)
-                    ]);
-                    setRooms(prev => prev.map(r => r.id === updatedR.id ? updatedR : r));
+                    const createdApp = await api.createAccommodationApplication(newApplication);
                     setAccommodationApplications(prev => [...prev, createdApp]);
-                }
-            } else if (metadata?.paymentType === 'marketplace') {
-                 const listing = marketplaceListings.find(l => l.id === metadata.listingId);
-                 if (listing) {
+                    
+                    const roomToUpdate = rooms.find(r => r.id === metadata.roomId);
+                    if(roomToUpdate) {
+                        const updatedRoom = await api.updateRoom({...roomToUpdate, isAvailable: false});
+                        setRooms(prev => prev.map(r => r.id === updatedRoom.id ? updatedRoom : r));
+                    }
+                    break;
+                case 'marketplace':
+                    const listing = marketplaceListings.find(l => l.id === metadata.listingId);
+                    if (!listing) break;
+                    
                     const newOrder: MarketplaceOrder = {
                         id: `order-${Date.now()}`,
                         buyerId: currentUser.id,
-                        listingId: listing.id,
-                        listingTitle: listing.title,
-                        sellerId: listing.sellerId,
-                        amount: listing.price,
+                        listingId: metadata.listingId,
+                        listingTitle: metadata.listingTitle,
+                        sellerId: metadata.sellerId,
+                        sellerName: metadata.sellerName,
+                        amount,
                         orderedAt: new Date().toISOString(),
                     };
-                    const updatedListing = { ...listing, isAvailable: false };
-                    const [createdOrder] = await Promise.all([
-                         api.createMarketplaceOrder(newOrder),
-                         api.updateMarketplaceListing(updatedListing),
-                    ]);
-                     setMarketplaceOrders(prev => [...prev, createdOrder]);
-                     setMarketplaceListings(prev => prev.map(l => l.id === updatedListing.id ? updatedListing : l));
-                 }
-            } else if (metadata?.paymentType === 'event_booking') {
-                const newBooking: EventBooking = {
-                    id: `booking-${Date.now()}`,
-                    eventId: metadata.eventId,
-                    userId: currentUser.id,
-                    serviceId: metadata.serviceId,
-                    details: metadata.details,
-                    amount,
-                    bookedAt: new Date().toISOString(),
-                };
-                const createdBooking = await api.createEventBooking(newBooking);
-                setEventBookings(prev => [...prev, createdBooking]);
-            } else if (metadata?.paymentType === 'visitor_library_fee') {
-                const newPayment: VisitorPayment = {
-                    id: `vp-${Date.now()}`,
-                    visitorId: currentUser.id,
-                    feeType: 'library_access',
-                    amountPaid: amount,
-                    paidAt: new Date().toISOString(),
-                };
-                const createdPayment = await api.createVisitorPayment(newPayment);
-                setVisitorPayments(prev => [...prev, createdPayment]);
-            } else if (metadata?.paymentType === 'event_ticket') {
-                 const newPurchase: EventTicketPurchase = {
-                    id: `ticket-${Date.now()}`,
-                    eventId: metadata.eventId,
-                    userId: currentUser.id,
-                    userName: currentUser.name,
-                    quantity: metadata.quantity,
-                    amountPaid: amount,
-                    purchasedAt: new Date().toISOString(),
-                };
-                const created = await api.createEventTicketPurchase(newPurchase);
-                setEventTicketPurchases(prev => [...prev, created]);
+                    const createdOrder = await api.createMarketplaceOrder(newOrder);
+                    setMarketplaceOrders(prev => [...prev, createdOrder]);
+                    
+                    // Credit seller's wallet
+                    const sellerWallet = wallets.find(w => w.userId === listing.sellerId);
+                    if (sellerWallet) {
+                        const updatedSellerWallet = { ...sellerWallet, balance: sellerWallet.balance + amount };
+                        await api.updateWallet(updatedSellerWallet);
+                        setWallets(prev => prev.map(w => w.id === updatedSellerWallet.id ? updatedSellerWallet : w));
+                        
+                        const creditTx: WalletTransaction = {
+                            id: `tx-sale-${Date.now()}`,
+                            walletId: listing.sellerId,
+                            type: 'sale_credit',
+                            amount,
+                            description: `Sale: ${listing.title}`,
+                            timestamp: new Date().toISOString(),
+                        };
+                        const createdCreditTx = await api.createWalletTransaction(creditTx);
+                        setWalletTransactions(prev => [...prev, createdCreditTx]);
+                    }
+
+                    // Update listing quantity
+                    const updatedListing = await api.updateMarketplaceListing({ ...listing, quantityAvailable: listing.quantityAvailable - 1, isAvailable: listing.quantityAvailable - 1 > 0 });
+                    setMarketplaceListings(prev => prev.map(l => l.id === updatedListing.id ? updatedListing : l));
+
+                    break;
+                case 'event_ticket':
+                    const newPurchase: EventTicketPurchase = {
+                        id: `ticket-${Date.now()}`,
+                        eventId: metadata.eventId,
+                        userId: currentUser.id,
+                        userName: currentUser.name,
+                        quantity: metadata.quantity,
+                        amountPaid: amount,
+                        purchasedAt: new Date().toISOString(),
+                    };
+                    const createdPurchase = await api.createEventTicketPurchase(newPurchase);
+                    setEventTicketPurchases(prev => [...prev, createdPurchase]);
+                    break;
+                case 'visitor_library_fee':
+                     const newVisitorPayment: VisitorPayment = {
+                        id: `vp-${Date.now()}`,
+                        visitorId: currentUser.id,
+                        feeType: 'library_access',
+                        amountPaid: amount,
+                        paidAt: new Date().toISOString(),
+                    };
+                    const createdVP = await api.createVisitorPayment(newVisitorPayment);
+                    setVisitorPayments(prev => [...prev, createdVP]);
+                    break;
+                case 'service_booking':
+                    const newBooking: ServiceBooking = {
+                        id: `book-${Date.now()}`,
+                        eventId: metadata.eventId,
+                        userId: currentUser.id,
+                        serviceId: metadata.serviceId,
+                        details: metadata.details,
+                        amount: amount,
+                        bookedAt: new Date().toISOString(),
+                    };
+                    const createdBooking = await api.createServiceBooking(newBooking);
+                    setServiceBookings(prev => [...prev, createdBooking]);
+                    break;
             }
         }
-
+        
+        // Finalize
         setPaymentModalData(null);
     };
 
-    // Marketplace handlers
-    const handleCreateListing = async (listing: Omit<MarketplaceListing, 'id' | 'sellerId' | 'sellerName' | 'createdAt' | 'isAvailable'>) => {
-        if (!currentUser) return;
-        const newListing: MarketplaceListing = {
-            ...listing,
-            id: `m-${Date.now()}`,
-            sellerId: currentUser.id,
-            sellerName: currentUser.name,
-            createdAt: new Date().toISOString(),
-            isAvailable: true,
+    const handleCreateCourse = async (courseData: Omit<Course, 'id' | 'creatorId'>) => {
+        if(!currentUser) return;
+        const newCourse: Course = {
+            ...courseData,
+            id: `course-${Date.now()}`,
+            creatorId: currentUser.id
         };
-        const created = await api.createMarketplaceListing(newListing);
-        setMarketplaceListings(prev => [...prev, created]);
+        const created = await api.createCourse(newCourse);
+        setCourses(prev => [...prev, created]);
         setModal({ type: null });
     };
 
-    const handleUpdateListing = async (listing: MarketplaceListing) => {
-        const updated = await api.updateMarketplaceListing(listing);
-        setMarketplaceListings(prev => prev.map(l => l.id === updated.id ? updated : l));
-        setModal({ type: null });
-    };
-
-    const handleDeleteListing = async (listingId: string) => {
-        if (window.confirm("Are you sure you want to delete this listing?")) {
-            await api.deleteMarketplaceListing(listingId);
-            setMarketplaceListings(prev => prev.filter(l => l.id !== listingId));
-        }
-    };
-
-    // Event/Booking Handlers
-    const handleCreateEvent = async (eventData: Omit<Event, 'id' | 'creatorId' | 'creatorName' | 'chatGroupId'>, isChatLocked: boolean) => {
-        if (!currentUser) return;
-        const newEvent: Event = {
-            ...eventData,
-            id: `evt-${Date.now()}`,
-            creatorId: currentUser.id,
-            creatorName: currentUser.name,
-        };
-        const created = await api.createEvent(newEvent, isChatLocked);
-        setEvents(prev => [...prev, created]);
-        const allGroups = await api.getChatGroups();
-        setChatGroups(allGroups); // Refresh groups to get the new event group
-        setModal({ type: null });
-    };
-    
-    const handleRegisterForEvent = async (eventId: string) => {
-        if (!currentUser) return;
-        const newRegistration: EventRegistration = {
-            id: `re-${currentUser.id}-${eventId}`,
-            eventId,
-            userId: currentUser.id,
-            registeredAt: new Date().toISOString(),
-        };
-        const created = await api.createEventRegistration(newRegistration);
-        setEventRegistrations(prev => [...prev, created]);
-    };
-    
-    const handleRegisterService = async (serviceData: Omit<RegisteredService, 'id' | 'providerId' | 'providerName' | 'status'>) => {
-        if (!currentUser) return;
-        const newService: RegisteredService = {
-            ...serviceData,
-            id: `serv-${Date.now()}`,
-            providerId: currentUser.id,
-            providerName: currentUser.name,
-            status: 'Pending',
-        };
-        const created = await api.createRegisteredService(newService);
-        setRegisteredServices(prev => [...prev, created]);
-        setModal({ type: null });
-        alert('Service submitted for review!');
-    };
-
-    const handleUpdateServiceStatus = async (serviceId: string, status: 'Approved' | 'Rejected') => {
-        const service = registeredServices.find(s => s.id === serviceId);
-        if (service) {
-            const updated = await api.updateRegisteredService({ ...service, status });
-            setRegisteredServices(prev => prev.map(s => s.id === serviceId ? updated : s));
-        }
-    };
-    
-    const handleInitiateEventBooking = (event: Event, service: RegisteredService, details: any) => {
-        setPaymentModalData({
-            amount: service.price * (details.quantity || 1),
-            description: `Booking: ${service.serviceName} for "${event.title}"`,
-            type: 'payment',
-            metadata: {
-                paymentType: 'event_booking',
-                eventId: event.id,
-                serviceId: service.id,
-                details: details,
-            }
-        });
-    };
-
-    const handleInitiateTicketPurchase = (event: Event, quantity: number) => {
-        if (!event.ticketPrice) return;
-        setPaymentModalData({
-            amount: event.ticketPrice * quantity,
-            description: `Ticket(s) for "${event.title}" (x${quantity})`,
-            type: 'payment',
-            metadata: {
-                paymentType: 'event_ticket',
-                eventId: event.id,
-                quantity: quantity,
-            }
-        });
-    };
-
-    // Library Handlers
-    const handleCreateBook = async (bookData: Omit<LibraryBook, 'id' | 'uploaderId' | 'uploadedAt'>) => {
+    const handleCreateBook = async (bookData: Omit<LibraryBook, 'id' | 'uploaderId' | 'uploadedAt' | 'ratings' | 'reviews'>) => {
         if (!currentUser) return;
         const newBook: LibraryBook = {
             ...bookData,
@@ -907,7 +914,7 @@ export default function App() {
             return [...prev, updated];
         });
     };
-
+    
     const handleCreateBookRequest = async (requestData: Omit<BookRequest, 'id' | 'userId' | 'userName' | 'status' | 'requestedAt'>) => {
         if (!currentUser) return;
         const newRequest: BookRequest = {
@@ -921,7 +928,6 @@ export default function App() {
         const created = await api.createBookRequest(newRequest);
         setBookRequests(prev => [...prev, created]);
         setModal({ type: null });
-        alert('Your book request has been submitted!');
     };
 
     const handleUpdateBookRequestStatus = async (requestId: string, status: BookRequest['status']) => {
@@ -932,7 +938,7 @@ export default function App() {
         }
     };
 
-    const handleCreateBookReview = async (reviewData: Omit<BookReview, 'id' | 'userId' | 'userName' | 'createdAt'>) => {
+    const handleCreateReview = async (reviewData: Omit<BookReview, 'id'|'userId'|'userName'|'createdAt'>) => {
         if (!currentUser) return;
         const newReview: BookReview = {
             ...reviewData,
@@ -941,363 +947,442 @@ export default function App() {
             userName: currentUser.name,
             createdAt: new Date().toISOString(),
         };
-        const bookToUpdate = libraryBooks.find(b => b.id === newReview.bookId);
+        const created = await api.createBookReview(newReview);
+        setBookReviews(prev => [...prev, created]);
+        // Update the book with the new review and rating
+        const bookToUpdate = libraryBooks.find(b => b.id === reviewData.bookId);
         if (bookToUpdate) {
             const updatedBook: LibraryBook = {
                 ...bookToUpdate,
-                ratings: [...(bookToUpdate.ratings || []), newReview.rating],
-                reviews: [...(bookToUpdate.reviews || []), newReview],
+                reviews: [...(bookToUpdate.reviews || []), created],
+                ratings: [...(bookToUpdate.ratings || []), reviewData.rating],
             };
-            const [createdReview, updatedBookResult] = await Promise.all([
-                api.createBookReview(newReview),
-                api.updateLibraryBook(updatedBook),
-            ]);
-            setBookReviews(prev => [...prev, createdReview]);
-            setLibraryBooks(prev => prev.map(b => b.id === updatedBookResult.id ? updatedBookResult : b));
+            const updated = await api.updateLibraryBook(updatedBook);
+            setLibraryBooks(prev => prev.map(b => b.id === updated.id ? updated : b));
+            // update the book in the modal
+            setModal({type: 'read-book', data: {book: updated, progress: modal.data.progress}});
         }
     };
 
+    const handleCreateEvent = async (eventData: Omit<Event, 'id'|'creatorId'|'creatorName'|'chatGroupId'>, isChatLocked: boolean) => {
+        if (!currentUser) return;
+        const newEvent: Event = {
+            ...eventData,
+            id: `event-${Date.now()}`,
+            creatorId: currentUser.id,
+            creatorName: currentUser.name,
+        };
+        const created = await api.createEvent(newEvent, isChatLocked);
+        setEvents(prev => [...prev, created]);
+        // Refetch chat groups to include the new event group
+        api.getChatGroups().then(setChatGroups);
+        setModal({ type: null });
+    };
 
-    // --- MEMOIZED DERIVED STATE ---
-    const getSubmissionForAssignment = useCallback((assignmentId: string) => submissions.find(s => s.assignmentId === assignmentId && s.studentId === currentUser?.id), [submissions, currentUser]);
-    const isAssignmentOverdue = (assignment: Assignment) => new Date(assignment.dueDate) < new Date();
+    const handleRegisterForEvent = async (eventId: string) => {
+        if (!currentUser) return;
+        const newRegistration: EventRegistration = {
+            id: `re-${Date.now()}`,
+            eventId,
+            userId: currentUser.id,
+            registeredAt: new Date().toISOString(),
+        };
+        const created = await api.createEventRegistration(newRegistration);
+        setEventRegistrations(prev => [...prev, created]);
+        alert("Registered for event successfully!");
+    };
     
+    const handleRegisterService = async (serviceData: Omit<RegisteredService, 'id'|'providerId'|'providerName'|'status'>) => {
+        if (!currentUser) return;
+        const newService: RegisteredService = {
+            ...serviceData,
+            id: `serv-${Date.now()}`,
+            providerId: currentUser.id,
+            providerName: currentUser.name,
+            status: 'Pending',
+        };
+        const created = await api.createRegisteredService(newService);
+        setRegisteredServices(prev => [...prev, created]);
+        setModal({ type: null });
+        alert("Service submitted for review!");
+    };
+    
+    const handleUpdateServiceStatus = async (serviceId: string, status: 'Approved' | 'Rejected') => {
+        const service = registeredServices.find(s => s.id === serviceId);
+        if (service) {
+            const updated = await api.updateRegisteredService({ ...service, status });
+            setRegisteredServices(prev => prev.map(s => s.id === serviceId ? updated : s));
+        }
+    };
+    
+    const handleBookService = (event: Event, service: RegisteredService, details: any) => {
+        setPaymentModalData({
+            amount: service.price * (details.quantity || 1),
+            description: `Booking: ${service.serviceName} for "${event.title}"`,
+            type: 'payment',
+            metadata: { paymentType: 'service_booking', serviceId: service.id, eventId: event.id, details }
+        });
+    };
+
+    const handleInitiateServiceBooking = (service: RegisteredService) => {
+        setServiceBookingModalData(service);
+    };
+
+    const handleConfirmServiceBooking = (details: any, price: number) => {
+        if (!serviceBookingModalData) return;
+        setPaymentModalData({
+            amount: price,
+            description: `Booking: ${serviceBookingModalData.serviceName}`,
+            type: 'payment',
+            metadata: { 
+                paymentType: 'service_booking', 
+                serviceId: serviceBookingModalData.id, 
+                details,
+                serviceName: serviceBookingModalData.serviceName,
+                providerName: serviceBookingModalData.providerName,
+            }
+        });
+        setServiceBookingModalData(null);
+    }
+
+    // --- MEMOIZED VALUES ---
     const assignmentsDueSoonCount = useMemo(() => {
-        if (currentUser?.role !== UserRole.STUDENT) return 0;
-        const isDueSoon = (dueDateString: string) => {
-            const due = new Date(dueDateString);
-            const now = new Date();
-            const twoDays = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
-            return due > now && due <= twoDays;
-        };
-        return assignments.filter(a =>
-            a.targetDepartments.includes(currentUser.department) &&
-            a.targetLevels.includes(currentUser.level) &&
-            !getSubmissionForAssignment(a.id) &&
-            isDueSoon(a.dueDate)
-        ).length;
-    }, [assignments, currentUser, getSubmissionForAssignment]);
-
-    const filteredTeacherAssignments = useMemo(() => {
-        if (currentUser?.role !== UserRole.TEACHER) return [];
-        return assignments
-            .filter(a => a.creatorId === currentUser.id)
-            .filter(a => a.title.toLowerCase().includes(assignmentSearchTerm.toLowerCase()));
-    }, [assignments, currentUser, assignmentSearchTerm]);
-
+        if (!currentUser || currentUser.role !== UserRole.STUDENT) return 0;
+        const now = new Date();
+        const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+        return assignments.filter(a => {
+            const dueDate = new Date(a.dueDate);
+            const isSubmitted = submissions.some(s => s.assignmentId === a.id && s.studentId === currentUser.id);
+            return !isSubmitted && dueDate > now && dueDate < threeDaysFromNow;
+        }).length;
+    }, [currentUser, assignments, submissions]);
+    
     const filteredStudentAssignments = useMemo(() => {
-        if (currentUser?.role !== UserRole.STUDENT) return [];
-        const isDueThisWeek = (dueDateString: string) => {
-            const due = new Date(dueDateString);
-            const now = new Date();
-            const sevenDays = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-            return due > now && due <= sevenDays;
-        };
+        if (!currentUser || currentUser.role !== UserRole.STUDENT) return [];
         let filtered = assignments.filter(a => 
             a.targetDepartments.includes(currentUser.department) &&
             a.targetLevels.includes(currentUser.level)
         );
-        switch(assignmentDateFilter) {
-            case 'due-this-week': filtered = filtered.filter(a => !getSubmissionForAssignment(a.id) && isDueThisWeek(a.dueDate)); break;
-            case 'overdue': filtered = filtered.filter(a => !getSubmissionForAssignment(a.id) && isAssignmentOverdue(a)); break;
-            case 'completed': filtered = filtered.filter(a => !!getSubmissionForAssignment(a.id)); break;
-        }
         if (assignmentSearchTerm) {
             filtered = filtered.filter(a => a.title.toLowerCase().includes(assignmentSearchTerm.toLowerCase()));
         }
+        if (assignmentDateFilter !== 'all') {
+            const now = new Date();
+            if (assignmentDateFilter === 'today') {
+                filtered = filtered.filter(a => new Date(a.dueDate).toDateString() === now.toDateString());
+            } else if (assignmentDateFilter === 'this_week') {
+                const endOfWeek = new Date(now);
+                endOfWeek.setDate(now.getDate() + 7);
+                filtered = filtered.filter(a => {
+                    const dueDate = new Date(a.dueDate);
+                    return dueDate >= now && dueDate <= endOfWeek;
+                });
+            } else if (assignmentDateFilter === 'overdue') {
+                 filtered = filtered.filter(a => new Date(a.dueDate) < now && !submissions.some(s => s.assignmentId === a.id));
+            }
+        }
         return filtered;
-    }, [assignments, currentUser, assignmentDateFilter, assignmentSearchTerm, getSubmissionForAssignment]);
+    }, [currentUser, assignments, submissions, assignmentSearchTerm, assignmentDateFilter]);
     
-    const teacherExams = useMemo(() => exams.filter(e => e.creatorId === currentUser?.id), [exams, currentUser]);
-    const studentExams = useMemo(() => exams.filter(e => 
-        e.targetDepartments.includes(currentUser?.department || '') &&
-        e.targetLevels.includes(currentUser?.level || 0)
-    ), [exams, currentUser]);
+    const teacherAssignments = useMemo(() => {
+        if (!currentUser || currentUser.role !== UserRole.TEACHER) return [];
+        return assignments.filter(a => a.creatorId === currentUser.id);
+    }, [currentUser, assignments]);
+
+    // Memoized values for dashboard
+    const dashboardStats = useMemo(() => {
+        if (!currentUser) return {};
+
+        switch (currentUser.role) {
+            case UserRole.STUDENT:
+                const studentSubmissions = submissions.filter(s => s.studentId === currentUser.id);
+                const studentAssignments = assignments.filter(a => 
+                    a.targetDepartments.includes(currentUser.department) &&
+                    a.targetLevels.includes(currentUser.level)
+                );
+                const pendingAssignments = studentAssignments.filter(a => !studentSubmissions.some(s => s.assignmentId === a.id) && new Date(a.dueDate) > new Date());
+
+                const now = new Date();
+                const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+                const studentExams = exams.filter(e => 
+                    e.targetDepartments.includes(currentUser.department) &&
+                    e.targetLevels.includes(currentUser.level)
+                );
+                const upcomingExams = studentExams.filter(e => {
+                    const startTime = new Date(e.startTime);
+                    return startTime > now && startTime < sevenDaysFromNow;
+                });
+                
+                const studentWallet = wallets.find(w => w.userId === currentUser.id);
+
+                return {
+                    pendingAssignments: pendingAssignments.length,
+                    upcomingExams: upcomingExams.length,
+                    gradedItems: submissions.filter(s => s.studentId === currentUser.id && s.grade !== undefined).length + examSubmissions.filter(s => s.studentId === currentUser.id && s.grade !== undefined).length,
+                    walletBalance: studentWallet?.balance.toFixed(2) || '0.00'
+                };
+            
+            case UserRole.TEACHER:
+                const teacherAssignments = assignments.filter(a => a.creatorId === currentUser.id);
+                const submissionsToGrade = submissions.filter(s => {
+                    const assignment = teacherAssignments.find(a => a.id === s.assignmentId);
+                    return assignment && s.grade === undefined && assignment.type === AssignmentType.THEORY;
+                });
+                
+                const teacherExams = exams.filter(e => e.creatorId === currentUser.id);
+                const activeExams = teacherExams.filter(e => new Date(e.startTime) < new Date() && new Date(e.endTime) > new Date());
+
+                const teacherCourses = courses.filter(c => c.creatorId === currentUser.id);
+
+                return {
+                    submissionsToGrade: submissionsToGrade.length,
+                    activeExams: activeExams.length,
+                    coursesManaged: teacherCourses.length,
+                    assignmentsCreated: teacherAssignments.length
+                };
+
+            case UserRole.ICT_STAFF:
+                const pendingHostelApprovals = hostels.filter(h => h.status === 'Pending').length;
+                const pendingServiceApprovals = registeredServices.filter(s => s.status === 'Pending').length;
+                const pendingSellerApprovals = users.filter(u => u.sellerApplicationStatus === 'pending').length;
+
+                return {
+                    totalUsers: users.length,
+                    pendingApprovals: pendingHostelApprovals + pendingServiceApprovals + pendingSellerApprovals,
+                    totalCourses: courses.length,
+                    totalAssignments: assignments.length + exams.length
+                };
+            default:
+                return {};
+        }
+    }, [currentUser, assignments, submissions, exams, examSubmissions, courses, users, hostels, registeredServices, wallets]);
 
     // --- RENDER LOGIC ---
-    if (isLoading && !currentUser) return <FullScreenLoader />;
+    if (isLoading) return <FullScreenLoader />;
 
     if (!currentUser) {
         return authView === 'login' ? 
-            <LoginPage onLogin={handleLogin} onSwitchToSignup={() => { setAuthView('signup'); setAuthError(null); }} error={authError} /> :
-            <SignupPage onSignup={handleSignup} onSwitchToLogin={() => { setAuthView('login'); setAuthError(null); }} error={authError} />;
-    }
-
-    const ExamStatusButton: React.FC<{exam: Exam}> = ({exam}) => {
-        const [now, setNow] = useState(new Date());
-        
-        useEffect(() => {
-            const timer = setInterval(() => setNow(new Date()), 1000);
-            return () => clearInterval(timer);
-        }, []);
-
-        const submissionsForThisExam = useMemo(() =>
-            examSubmissions
-                .filter(s => s.examId === exam.id && s.studentId === currentUser.id)
-                .sort((a, b) => b.attemptNumber - a.attemptNumber),
-            [examSubmissions, exam.id, currentUser.id]
-        );
-
-        const latestSubmission = submissionsForThisExam[0];
-        const attemptCount = submissionsForThisExam.length;
-        const startTime = new Date(exam.startTime);
-        const endTime = new Date(exam.endTime);
-
-        if (latestSubmission) {
-            const latestGrade = latestSubmission.grade;
-            const canRetake =
-                exam.retakePolicy.allowed &&
-                attemptCount < exam.retakePolicy.maxAttempts &&
-                latestGrade !== undefined &&
-                ((latestGrade / exam.totalMarks) * 100 < exam.retakePolicy.passingGradePercentage) &&
-                now < endTime; // Cannot retake after exam window closes
-
-            if (canRetake) {
-                return (
-                    <div className="text-center space-y-2">
-                        <div className="bg-yellow-100 text-yellow-800 p-2 rounded-lg text-sm">
-                            Score: {latestGrade}/{exam.totalMarks}. You can retake this exam.
-                        </div>
-                        <button onClick={() => setModal({ type: 'take-exam', data: { exam, attemptNumber: attemptCount + 1 } })} className="w-full bg-primary-600 text-white font-semibold py-2 rounded-lg hover:bg-primary-700 transition">
-                            Retake Exam (Attempt {attemptCount + 1})
-                        </button>
-                    </div>
-                );
-            }
-            
-            const highestGrade = Math.max(...submissionsForThisExam.map(s => s.grade ?? 0));
-            return (
-                <div className="bg-green-100 text-green-800 p-2 rounded-lg flex items-center justify-center space-x-2 text-sm">
-                    <CheckCircleIcon className="w-5 h-5"/>
-                    <span>Submitted | Best Score: {highestGrade}/{exam.totalMarks}</span>
-                </div>
-            );
-        }
-
-        if (now < startTime) {
-            const diff = Math.floor((startTime.getTime() - now.getTime()) / 1000);
-            const d = Math.floor(diff / 86400); const h = Math.floor((diff % 86400) / 3600); const m = Math.floor((diff % 3600) / 60); const s = diff % 60;
-            return <div className="w-full text-center bg-blue-100 text-blue-800 font-semibold py-2 rounded-lg">Starts in {d > 0 ? `${d}d ` : ''}{h.toString().padStart(2, '0')}:{m.toString().padStart(2, '0')}:{s.toString().padStart(2, '0')}</div>
-        }
-        if (now > endTime) return <button disabled className="w-full bg-red-400 text-white font-semibold py-2 rounded-lg">Missed</button>;
-        
-        return <button onClick={() => setModal({type: 'take-exam', data: { exam, attemptNumber: 1 }})} className="w-full bg-primary-600 text-white font-semibold py-2 rounded-lg hover:bg-primary-700 transition">Start Exam</button>;
+            <LoginPage onLogin={handleLogin} onSwitchToSignup={() => setAuthView('signup')} error={authError} /> : 
+            <SignupPage onSignup={handleSignup} onSwitchToLogin={() => setAuthView('login')} error={authError} />;
     }
     
+    if (isVideoCallActive) {
+        return <VideoCallView onClose={() => setIsVideoCallActive(false)} />;
+    }
+
     const renderContent = () => {
-        if (isLoading) return <FullScreenLoader message="Loading your dashboard..." />;
-        
         switch (activeView) {
             case 'dashboard':
-                 if (currentUser.role === UserRole.VISITOR) {
-                    setActiveView('library'); // Visitors default to library
-                    return null;
-                }
-                const teacherAssignments = assignments.filter(a => a.creatorId === currentUser.id);
-                const studentAssignments = assignments.filter(a => a.targetDepartments.includes(currentUser?.department || '') && a.targetLevels.includes(currentUser?.level || 0));
                 return (
-                     <div className="space-y-6">
-                        <h2 className="text-2xl font-bold text-slate-800">Dashboard Overview</h2>
+                    <div className="space-y-6">
+                        <h2 className="text-3xl font-bold text-slate-800">Welcome back, {currentUser.name.split(' ')[0]}!</h2>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                            <div className="bg-white p-6 rounded-lg shadow-md flex items-center space-x-4">
-                                <div className="p-3 bg-primary-100 rounded-full"><ClipboardListIcon className="w-6 h-6 text-primary-600"/></div>
-                                <div>
-                                    <p className="text-slate-500 text-sm">{currentUser.role === UserRole.TEACHER ? "Assignments Created" : "Pending Assignments"}</p>
-                                    <p className="text-2xl font-bold text-slate-800">{currentUser.role === UserRole.TEACHER ? teacherAssignments.length : studentAssignments.filter(a => !getSubmissionForAssignment(a.id)).length}</p>
+                            {currentUser.role === UserRole.STUDENT && (
+                                <>
+                                    <StatCard icon={ClipboardListIcon} label="Pending Assignments" value={dashboardStats.pendingAssignments || 0} onClick={() => setActiveView('assignments')} />
+                                    <StatCard icon={ClockIcon} label="Upcoming Exams (7d)" value={dashboardStats.upcomingExams || 0} onClick={() => setActiveView('exams')} />
+                                    <StatCard icon={AcademicCapIcon} label="Graded Items" value={dashboardStats.gradedItems || 0} onClick={() => setActiveView('grades')} />
+                                    <StatCard icon={CreditCardIcon} label="Wallet Balance" value={`$${dashboardStats.walletBalance || '0.00'}`} onClick={() => setActiveView('payment-portal')} />
+                                </>
+                            )}
+                            {currentUser.role === UserRole.TEACHER && (
+                                <>
+                                    <StatCard icon={PencilIcon} label="Submissions to Grade" value={dashboardStats.submissionsToGrade || 0} onClick={() => setActiveView('assignments')} />
+                                    <StatCard icon={ClockIcon} label="Active Exams" value={dashboardStats.activeExams || 0} onClick={() => setActiveView('exams')} />
+                                    <StatCard icon={BookOpenIcon} label="Courses Managed" value={dashboardStats.coursesManaged || 0} onClick={() => setActiveView('course-registration')} />
+                                    <StatCard icon={ClipboardListIcon} label="Assignments Created" value={dashboardStats.assignmentsCreated || 0} onClick={() => setActiveView('assignments')} />
+                                </>
+                            )}
+                            {currentUser.role === UserRole.ICT_STAFF && (
+                                <>
+                                    <StatCard icon={UserGroupIcon} label="Total Users" value={dashboardStats.totalUsers || 0} onClick={() => setActiveView('staff-portal')} />
+                                    <StatCard icon={CheckCircleIcon} label="Pending Approvals" value={dashboardStats.pendingApprovals || 0} onClick={() => setActiveView('staff-portal')} />
+                                    <StatCard icon={BookOpenIcon} label="Total Courses" value={dashboardStats.totalCourses || 0} onClick={() => setActiveView('course-registration')} />
+                                    <StatCard icon={DocumentPlusIcon} label="Total Content" value={dashboardStats.totalAssignments || 0} onClick={() => setActiveView('staff-portal')} />
+                                </>
+                            )}
+                            {currentUser.role === UserRole.VISITOR && (
+                                <div className="col-span-full bg-white p-8 rounded-lg shadow-md text-center">
+                                    <h3 className="text-2xl font-bold text-slate-800">Welcome to CampusConnect</h3>
+                                    <p className="mt-2 text-slate-600">Explore the digital library, check out upcoming events, or browse the marketplace.</p>
                                 </div>
-                            </div>
-                             <div className="bg-white p-6 rounded-lg shadow-md flex items-center space-x-4">
-                                <div className="p-3 bg-green-100 rounded-full"><CheckCircleIcon className="w-6 h-6 text-green-600"/></div>
-                                <div>
-                                     <p className="text-slate-500 text-sm">{currentUser.role === UserRole.TEACHER ? "Total Submissions" : "Completed Assignments"}</p>
-                                    <p className="text-2xl font-bold text-slate-800">{currentUser.role === UserRole.TEACHER ? submissions.filter(s => teacherAssignments.some(a => a.id === s.assignmentId)).length : submissions.filter(s => s.studentId === currentUser.id).length}</p>
-                                </div>
-                            </div>
+                            )}
                         </div>
                     </div>
                 );
             case 'assignments':
-                if (currentUser.role === UserRole.TEACHER) return (
-                    <div>
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-2xl font-bold text-slate-800">Your Assignments</h2>
-                            <button onClick={() => setModal({ type: 'create-assignment' })} className="bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-primary-700 transition"><PlusCircleIcon className="w-5 h-5"/><span>Create Assignment</span></button>
-                        </div>
-                         <div className="mb-6"><input type="text" placeholder="Search assignments by title..." value={assignmentSearchTerm} onChange={e => setAssignmentSearchTerm(e.target.value)} className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-primary-500 focus:border-primary-500"/></div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                           {filteredTeacherAssignments.map(a => (
-                               <div key={a.id} className="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow flex flex-col">
-                                   <div className="flex-grow">
-                                        <div className="flex justify-between items-start"><h3 className="text-lg font-bold text-slate-800 pr-2">{a.title}</h3><PriorityBadge priority={a.priority || AssignmentPriority.MEDIUM} /></div>
-                                        <p className="text-sm text-slate-500 mt-1">{a.type} - {a.totalMarks} Marks</p>
-                                        <p className="text-sm text-slate-600 mt-2 line-clamp-2">{a.description}</p>
-                                        <div className="flex items-center space-x-2 mt-4 text-sm text-slate-500"><ClockIcon className="w-4 h-4" /><span>{formatDueDate(a.dueDate)}</span></div>
-                                   </div>
-                                    <div className="flex space-x-2 mt-4">
-                                        <button onClick={() => setModal({type: 'view-submissions', data: {item: a, itemType: 'assignment'}})} className="flex-1 bg-slate-100 text-slate-700 font-semibold py-2 rounded-lg hover:bg-slate-200 transition">View Submissions ({submissions.filter(s => s.assignmentId === a.id).length})</button>
-                                        <button onClick={() => setModal({type: 'edit-assignment', data: a})} className="p-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition" aria-label="Edit Assignment"><PencilIcon className="w-5 h-5"/></button>
-                                        <button onClick={() => handleDeleteAssignment(a.id)} className="p-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition" aria-label="Delete Assignment"><TrashIcon className="w-5 h-5"/></button>
-                                    </div>
-                               </div>
-                           ))}
-                        </div>
-                         {filteredTeacherAssignments.length === 0 && <p className="text-slate-500 text-center mt-8">You haven't created any assignments yet, or none match your search.</p>}
-                    </div>
-                );
-                const FilterButton: React.FC<{filterValue: string, label: string}> = ({filterValue, label}) => (<button onClick={() => setAssignmentDateFilter(filterValue)} className={`px-4 py-2 text-sm font-medium rounded-full transition-colors ${assignmentDateFilter === filterValue ? 'bg-primary-600 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'}`}>{label}</button>);
-                return (
-                     <div>
-                        <h2 className="text-2xl font-bold text-slate-800 mb-4">Available Assignments</h2>
-                        <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6 p-4 bg-white rounded-lg shadow-sm border">
-                            <div className="relative w-full md:w-2/5">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <SearchIcon className="w-5 h-5 text-slate-400" />
-                                </div>
-                                <input 
-                                    type="text" 
-                                    placeholder="Search assignments by title..." 
-                                    value={assignmentSearchTerm} 
-                                    onChange={e => setAssignmentSearchTerm(e.target.value)} 
-                                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-full shadow-sm focus:ring-primary-500 focus:border-primary-500"
-                                />
+                if (currentUser.role === UserRole.TEACHER) {
+                    return (
+                        <div className="space-y-6">
+                            <div className="flex justify-between items-center">
+                                <h2 className="text-3xl font-bold text-slate-800">My Assignments</h2>
+                                <button onClick={() => setModal({ type: 'create-assignment' })} className="bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-primary-700 transition">
+                                    <PlusCircleIcon className="w-5 h-5"/>
+                                    <span>Create Assignment</span>
+                                </button>
                             </div>
-                            <div className="flex items-center space-x-2 bg-slate-100 p-1 rounded-full">
-                                <FilterButton filterValue="all" label="All" />
-                                <FilterButton filterValue="due-this-week" label="Due this Week" />
-                                <FilterButton filterValue="overdue" label="Overdue" />
-                                <FilterButton filterValue="completed" label="Completed" />
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                           {filteredStudentAssignments.map(a => {
-                               const submission = getSubmissionForAssignment(a.id);
-                               return (
-                                   <div key={a.id} className={`bg-white p-6 rounded-lg shadow-md transition-shadow ${submission ? 'opacity-70' : 'hover:shadow-xl'}`}>
-                                        <div className="flex justify-between items-start"><h3 className="text-lg font-bold text-slate-800 pr-2">{a.title}</h3><PriorityBadge priority={a.priority || AssignmentPriority.MEDIUM} /></div>
-                                       <p className="text-sm text-slate-500 mt-1">{a.type} - By {a.creatorName}</p>
-                                       <p className="text-sm text-slate-600 mt-2 line-clamp-2">{a.description}</p>
-                                       <div className="flex items-center space-x-2 mt-4 text-sm text-slate-500"><ClockIcon className="w-4 h-4" /><span>{formatDueDate(a.dueDate)}</span></div>
-                                       <div className="mt-4">
-                                           {submission ? (
-                                               <div className="bg-green-100 text-green-800 p-2 rounded-lg flex items-center justify-center space-x-2"><CheckCircleIcon className="w-5 h-5"/> <span>Submitted {submission.grade !== undefined ? `| Grade: ${submission.grade}/${a.totalMarks}` : ''}</span></div>
-                                           ) : (
-                                               <button onClick={() => setModal({ type: 'take-assignment', data: a })} disabled={isAssignmentOverdue(a)} className="w-full bg-primary-600 text-white font-semibold py-2 rounded-lg hover:bg-primary-700 transition disabled:bg-slate-300 disabled:cursor-not-allowed">{isAssignmentOverdue(a) ? 'Overdue' : 'Start Assignment'}</button>
-                                           )}
-                                       </div>
-                                   </div>
-                               )
-                           })}
-                        </div>
-                        {filteredStudentAssignments.length === 0 && <p className="text-slate-500 text-center mt-8">No assignments match your criteria.</p>}
-                     </div>
-                );
-            case 'exams':
-                 if (currentUser.role === UserRole.TEACHER) return (
-                    <div>
-                        <div className="flex justify-between items-center mb-6"><h2 className="text-2xl font-bold text-slate-800">Your Exams</h2><button onClick={() => setModal({ type: 'create-exam' })} className="bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-primary-700 transition"><PlusCircleIcon className="w-5 h-5"/><span>Create Exam</span></button></div>
-                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {teacherExams.map(exam => (
-                                <div key={exam.id} className="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow flex flex-col">
-                                    <div className="flex-grow">
-                                        <h3 className="text-lg font-bold text-slate-800">{exam.title}</h3>
-                                        <p className="text-sm text-slate-500 mt-1">{exam.type} - {exam.durationMinutes} mins</p>
-                                        <div className="text-xs text-slate-500 mt-2 space-y-1">
-                                            <p>Starts: {new Date(exam.startTime).toLocaleString()}</p>
-                                            <p>Ends: {new Date(exam.endTime).toLocaleString()}</p>
+                            {teacherAssignments.length > 0 ? (
+                                teacherAssignments.map(assignment => {
+                                     const assignmentSubmissions = submissions.filter(s => s.assignmentId === assignment.id);
+                                     return (
+                                        <div key={assignment.id} className="bg-white p-4 rounded-lg shadow-md flex justify-between items-center">
+                                            <div>
+                                                <h3 className="font-bold text-slate-800">{assignment.title}</h3>
+                                                <p className="text-sm text-slate-500">{assignment.targetDepartments.join(', ')} - Level {assignment.targetLevels.join(', ')}</p>
+                                            </div>
+                                            <div className="flex items-center space-x-4">
+                                                <button onClick={() => setModal({ type: 'view-submissions', data: {item: assignment, itemType: 'assignment'} })} className="text-sm font-semibold text-primary-600 hover:underline">
+                                                    {assignmentSubmissions.length} Submissions
+                                                </button>
+                                                <button onClick={() => setModal({ type: 'edit-assignment', data: assignment })} className="p-2 text-slate-500 hover:bg-slate-100 rounded-full" title="Edit"><PencilIcon className="w-5 h-5"/></button>
+                                                <button onClick={() => handleDeleteAssignment(assignment.id)} className="p-2 text-red-500 hover:bg-red-100 rounded-full" title="Delete"><TrashIcon className="w-5 h-5"/></button>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="flex space-x-2 mt-4">
-                                        <button onClick={() => setModal({type: 'view-submissions', data: {item: exam, itemType: 'exam'}})} className="flex-1 bg-slate-100 text-slate-700 font-semibold py-2 rounded-lg hover:bg-slate-200 transition">
-                                            Submissions ({examSubmissions.filter(s => s.examId === exam.id).length})
-                                        </button>
-                                        <button onClick={() => handleDeleteExam(exam.id)} className="p-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition" aria-label="Delete Exam">
-                                            <TrashIcon className="w-5 h-5"/>
-                                        </button>
-                                    </div>
+                                    )
+                                })
+                            ) : (
+                                <p>You have not created any assignments yet.</p>
+                            )}
+                        </div>
+                    );
+                }
+                if (currentUser.role === UserRole.STUDENT) {
+                     return (
+                        <div className="space-y-6">
+                            <h2 className="text-3xl font-bold text-slate-800">My Assignments</h2>
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {filteredStudentAssignments.map(assignment => {
+                                        const submission = submissions.find(s => s.assignmentId === assignment.id && s.studentId === currentUser.id);
+                                        const isOverdue = new Date(assignment.dueDate) < new Date();
+
+                                        return (
+                                            <div key={assignment.id} className={`bg-white rounded-lg shadow-md p-6 flex flex-col transition-all duration-200 hover:shadow-xl hover:-translate-y-1`}>
+                                                <div className="flex justify-between items-start">
+                                                    <PriorityBadge priority={assignment.priority} />
+                                                    {submission ? 
+                                                        <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-1 rounded-full">SUBMITTED</span> :
+                                                        isOverdue ? 
+                                                        <span className="text-xs font-bold text-red-600 bg-red-100 px-2 py-1 rounded-full">OVERDUE</span> : 
+                                                        null
+                                                    }
+                                                </div>
+                                                <div className="flex-grow my-3">
+                                                    <h3 className="text-lg font-bold text-slate-800 group-hover:text-primary-600 transition-colors">{assignment.title}</h3>
+                                                    <p className="text-sm text-slate-500">By {assignment.creatorName}</p>
+                                                    <p className="text-xs text-slate-400 mt-2">{assignment.type} - {assignment.totalMarks} Marks</p>
+                                                </div>
+                                                <div className="border-t pt-4 space-y-3">
+                                                    <div className="flex justify-between items-center text-sm">
+                                                        <span className="font-semibold text-slate-600">Due Date:</span>
+                                                        {formatDueDate(assignment.dueDate)}
+                                                    </div>
+                                                    <button
+                                                        onClick={() => setModal({ type: 'take-assignment', data: assignment })}
+                                                        disabled={!!submission || isOverdue}
+                                                        className="w-full bg-primary-600 text-white font-bold py-2 rounded-lg hover:bg-primary-700 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed"
+                                                    >
+                                                        {submission ? 'Submitted' : 'Take Assignment'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
-                            ))}
-                         </div>
-                         {teacherExams.length === 0 && <p className="text-slate-500 text-center mt-8">You haven't created any exams yet.</p>}
-                    </div>
-                 );
-                 return (
-                     <div>
-                        <h2 className="text-2xl font-bold text-slate-800 mb-6">Available Exams</h2>
-                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                           {studentExams.map(exam => (
-                               <div key={exam.id} className="bg-white p-6 rounded-lg shadow-md"><h3 className="text-lg font-bold text-slate-800">{exam.title}</h3><p className="text-sm text-slate-500 mt-1">{exam.type} - By {exam.creatorName}</p><p className="text-sm text-slate-500 mt-1">{exam.durationMinutes} minutes - {exam.totalMarks} marks</p><div className="mt-4"><ExamStatusButton exam={exam} /></div></div>
-                           ))}
-                         </div>
-                          {studentExams.length === 0 && <p className="text-slate-500 text-center mt-8">No exams available for you at the moment.</p>}
-                     </div>
-                 );
-            case 'grades': return <GradesView assignments={assignments} submissions={submissions.filter(s => s.studentId === currentUser.id)} exams={exams} examSubmissions={examSubmissions.filter(s => s.studentId === currentUser.id)}/>;
-            case 'library': return <LibraryView currentUser={currentUser} books={libraryBooks} readingProgress={readingProgress} visitorPayments={visitorPayments} bookRequests={bookRequests} onOpenReader={(book, progress) => setModal({type: 'book-reader', data: {book, progress}})} onOpenUploader={() => setModal({type: 'book-uploader'})} onUpdateProgress={handleUpdateReadingProgress} onInitiatePayment={handleInitiateVisitorLibraryPayment} onOpenRequestForm={() => setModal({type: 'book-request-form'})} onOpenRequestManager={() => setModal({type: 'book-request-manager'})} />;
-            case 'course-registration': return <CourseRegistrationView currentUser={currentUser} courses={courses} registrations={courseRegistrations.filter(r => r.studentId === currentUser.id)} onRegister={handleRegisterCourses}/>;
-            case 'course-materials': return <CourseMaterialsView currentUser={currentUser} courses={courses} courseRegistrations={courseRegistrations} materials={courseMaterials} onUploadClick={() => setModal({ type: 'upload-material' })} onDelete={handleDeleteMaterial} />;
-            case 'accommodation': return <AccommodationView currentUser={currentUser} hostels={hostels} rooms={rooms} applications={accommodationApplications} onInitiateBooking={handleInitiateBooking} onRegisterHostel={() => setModal({ type: 'register-hostel' })}/>;
-            case 'payment-portal': return <PaymentPortal currentUser={currentUser} feeStatements={feeStatements.filter(fs => fs.studentId === currentUser.id)} wallet={wallets.find(w => w.userId === currentUser.id)} transactions={walletTransactions.filter(t => t.walletId === currentUser.id)} marketplaceOrders={marketplaceOrders.filter(o => o.buyerId === currentUser.id)} onDeposit={handleInitiateDeposit} />;
-            case 'marketplace': return <MarketplaceView currentUser={currentUser} listings={marketplaceListings} onPurchase={handleInitiateMarketplacePayment} onApplySeller={() => handleUpdateUser({...currentUser, sellerApplicationStatus: 'pending'})} onCreateListing={() => setModal({ type: 'create-listing' })} onDeleteListing={handleDeleteListing} onEditListing={(listing) => setModal({ type: 'edit-listing', data: listing })} setActiveView={setActiveView} />;
-            case 'profile': return <ProfileView user={currentUser} onUpdateUser={handleUpdateUser} />;
-            case 'chat': return <ChatView currentUser={currentUser} allUsers={users} groups={chatGroups} messages={chatMessages} events={events} onSendMessage={handleSendMessage} onStartVideoCall={() => setIsVideoCallActive(true)} onOpenSettings={(group) => setManageChatSettingsModalGroup(group)} setActiveView={setActiveView} onDeleteMessage={handleDeleteMessage}/>;
-            case 'attendance': return <AttendanceView currentUser={currentUser} allUsers={users} records={attendanceRecords} onSave={handleSaveAttendance} courses={courses} courseRegistrations={courseRegistrations}/>;
-            case 'event/booking': return <EventBookingPortal currentUser={currentUser} events={events} registrations={eventRegistrations} ticketPurchases={eventTicketPurchases} services={registeredServices} onRegisterForEvent={handleRegisterForEvent} onViewDetails={(event) => setModal({type: 'event-details', data: event})} onCreateEvent={() => setModal({type: 'create-event'})} onRegisterService={() => setModal({type: 'register-service'})} />;
-            case 'staff-portal': return <StaffPortal currentUser={currentUser} users={users} chatGroups={chatGroups} assignments={assignments} exams={exams} submissions={submissions} examSubmissions={examSubmissions} hostels={hostels} registeredServices={registeredServices} bookRequests={bookRequests} onUpdateHostelStatus={handleUpdateHostelStatus} onUpdateServiceStatus={handleUpdateServiceStatus} onUpdateBookRequestStatus={handleUpdateBookRequestStatus} onDeleteUser={handleDeleteUser} onOpenUserCreator={() => setIsUserCreatorOpen(true)} onOpenManageAdmins={setManageAdminsModalGroup} onEditAssignment={(a) => setModal({ type: 'edit-assignment', data: a })} onDeleteAssignment={handleDeleteAssignment} onViewSubmissions={(item, itemType) => setModal({ type: 'view-submissions', data: { item, itemType } })} onDeleteExam={handleDeleteExam} onUpdateUser={handleUpdateUser} />
-            default: return <div>Select a view</div>;
+                                {filteredStudentAssignments.length === 0 && (
+                                    <div className="text-center py-12 bg-white rounded-lg shadow-md">
+                                        <h3 className="text-xl font-bold text-slate-700">All Caught Up!</h3>
+                                        <p className="text-slate-500 mt-2">You have no pending assignments that match your filters.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    );
+                }
+                break;
+            case 'exams':
+                return <ExamsView 
+                    currentUser={currentUser} 
+                    exams={exams} 
+                    examSubmissions={examSubmissions}
+                    onTakeExam={(exam, attemptNumber) => setModal({ type: 'take-exam', data: { exam, attemptNumber } })}
+                    onCreateExam={() => setModal({ type: 'create-exam' })}
+                    onViewSubmissions={(item, itemType) => setModal({ type: 'view-submissions', data: { item, itemType } })}
+                    onDeleteExam={handleDeleteExam}
+                />;
+            case 'grades':
+                return <GradesView assignments={assignments} submissions={submissions.filter(s => s.studentId === currentUser.id)} exams={exams} examSubmissions={examSubmissions.filter(s => s.studentId === currentUser.id)} />;
+            case 'chat':
+                return <ChatView currentUser={currentUser} allUsers={users} groups={chatGroups} messages={chatMessages} events={events} onSendMessage={handleSendMessage} onStartVideoCall={() => setIsVideoCallActive(true)} onOpenSettings={(group) => setManageChatSettingsModalGroup(group)} setActiveView={handleSetActiveView} onDeleteMessage={handleDeleteMessage} initialActiveGroupId={initialActiveGroupId} setInitialActiveGroupId={setInitialActiveGroupId} eventRegistrations={eventRegistrations} eventTicketPurchases={eventTicketPurchases} onViewEventDetails={handleViewEventDetails} onViewMarketplaceItem={handleViewMarketplaceItem} onViewService={handleViewService} />
+            case 'attendance':
+                return <AttendanceView currentUser={currentUser} allUsers={users} records={attendanceRecords} onSave={handleSaveAttendance} courses={courses} courseRegistrations={courseRegistrations} />
+            case 'staff-portal':
+                return <StaffPortal currentUser={currentUser} users={users} chatGroups={chatGroups} assignments={assignments} exams={exams} submissions={submissions} examSubmissions={examSubmissions} hostels={hostels} registeredServices={registeredServices} onUpdateHostelStatus={handleUpdateHostelStatus} onUpdateServiceStatus={handleUpdateServiceStatus} onDeleteUser={handleDeleteUser} onOpenUserCreator={() => setIsUserCreatorOpen(true)} onOpenManageAdmins={(group) => setManageAdminsModalGroup(group)} onEditAssignment={(assignment) => setModal({ type: 'edit-assignment', data: assignment })} onDeleteAssignment={handleDeleteAssignment} onViewSubmissions={(item, itemType) => setModal({ type: 'view-submissions', data: {item, itemType} })} onDeleteExam={handleDeleteExam} onUpdateUser={handleUpdateUser} />
+            case 'course-registration':
+                return <CourseRegistrationView currentUser={currentUser} courses={courses} registrations={courseRegistrations.filter(r => r.studentId === currentUser.id)} onRegister={handleRegisterCourses} onOpenCourseCreator={() => setModal({type: 'create-course'})}/>
+            case 'payment-portal':
+                return <PaymentPortal currentUser={currentUser} feeStatements={feeStatements.filter(fs => fs.studentId === currentUser.id)} wallet={wallets.find(w => w.userId === currentUser.id)} transactions={walletTransactions.filter(wt => wt.walletId === currentUser.id)} marketplaceOrders={marketplaceOrders.filter(o => o.buyerId === currentUser.id)} onDeposit={handleInitiateDeposit} />;
+            case 'accommodation':
+                 return <AccommodationView currentUser={currentUser} hostels={hostels} rooms={rooms} applications={accommodationApplications} onInitiateBooking={handleInitiateBooking} onRegisterHostel={() => setModal({type: 'register-hostel'})} />
+            case 'course-materials':
+                return <CourseMaterialsView currentUser={currentUser} courses={courses} courseRegistrations={courseRegistrations.filter(r => r.studentId === currentUser.id)} materials={courseMaterials} onUploadClick={() => setModal({type: 'upload-material'})} onDelete={handleDeleteMaterial} />
+            case 'profile':
+                 return <ProfileView user={currentUser} onUpdateUser={handleUpdateUser} />;
+            case 'marketplace':
+                return <MarketplaceView currentUser={currentUser} listings={marketplaceListings} onPurchase={handleInitiateMarketplacePayment} onApplySeller={() => handleUpdateUser({...currentUser, sellerApplicationStatus: 'pending'})} onCreateListing={() => setModal({type: 'create-listing'})} onDeleteListing={async (id) => {await api.deleteMarketplaceListing(id); setMarketplaceListings(await api.getMarketplaceListings());}} onEditListing={(l) => setModal({type: 'edit-listing', data: l})} setActiveView={handleSetActiveView} initialSearch={initialMarketplaceSearch} onDidUseInitialSearch={() => setInitialMarketplaceSearch('')} />
+            case 'events':
+                return <EventPortalView currentUser={currentUser} events={events} registrations={eventRegistrations} ticketPurchases={eventTicketPurchases} services={registeredServices} bookings={serviceBookings} onRegisterForEvent={handleRegisterForEvent} onViewDetails={(e) => setModal({type: 'view-event', data: e})} onCreateEvent={() => setModal({type: 'create-event'})} onRegisterService={() => setModal({type: 'register-service'})} onBookServiceNoEvent={handleInitiateServiceBooking} setActiveView={handleSetActiveView} initialSearch={initialEventSearch} initialTab={initialEventTab} onDidUseInitialSearch={() => { setInitialEventSearch(''); setInitialEventTab('browse-events'); }} />
+            case 'library':
+                return <LibraryView currentUser={currentUser} books={libraryBooks} readingProgress={readingProgress} visitorPayments={visitorPayments} bookRequests={bookRequests} onOpenReader={(book, progress) => setModal({type: 'read-book', data: {book, progress}})} onOpenUploader={() => setModal({type: 'upload-book'})} onUpdateProgress={handleUpdateReadingProgress} onInitiatePayment={handleInitiateVisitorPayment} onOpenRequestForm={() => setModal({type: 'request-book'})} onOpenRequestManager={() => setModal({type: 'manage-requests'})} />;
+            default:
+                return <p>View not found.</p>;
         }
     };
-    
-    const closeSidebar = () => setIsSidebarOpen(false);
 
     return (
-        <div className="flex h-screen bg-slate-100 overflow-hidden">
-             {isSidebarOpen && <div onClick={closeSidebar} className="fixed inset-0 bg-black/50 z-20 md:hidden"></div>}
-            
-            <div className={`fixed inset-y-0 left-0 w-64 bg-slate-800 text-slate-200 p-6 flex flex-col transform transition-transform duration-300 ease-in-out z-30 md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-                <Sidebar
-                    role={currentUser.role}
-                    activeView={activeView}
-                    setActiveView={(view) => { setActiveView(view); closeSidebar(); }}
-                    assignmentsDueSoonCount={assignmentsDueSoonCount}
-                />
-            </div>
+        <div className="h-screen flex bg-slate-100">
+            {/* Sidebar */}
+            <aside className={`absolute md:relative z-20 md:z-auto w-64 bg-slate-800 text-white p-6 flex-col shrink-0 transition-transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:flex`}>
+                <Sidebar role={currentUser.role} activeView={activeView} setActiveView={handleSetActiveView} assignmentsDueSoonCount={assignmentsDueSoonCount} />
+            </aside>
 
+            {/* Main Content */}
             <div className="flex-1 flex flex-col overflow-hidden">
-                <Navbar 
-                    user={currentUser} 
-                    onLogout={handleLogout} 
-                    activeView={activeView} 
-                    setActiveView={setActiveView} 
-                    onToggleSidebar={() => setIsSidebarOpen(o => !o)} 
-                />
-                <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-8">
+                <Navbar user={currentUser} onLogout={handleLogout} activeView={activeView} setActiveView={handleSetActiveView} onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
+                <main className="flex-1 overflow-y-auto p-6">
                     {renderContent()}
                 </main>
             </div>
-
-            {modal.type === 'create-assignment' && <AssignmentCreator onClose={() => setModal({ type: null })} onSave={handleCreateAssignment} teacherId={currentUser.id} teacherName={currentUser.name}/>}
-            {modal.type === 'edit-assignment' && <AssignmentCreator onClose={() => setModal({ type: null })} onSave={handleUpdateAssignment} teacherId={currentUser.id} teacherName={currentUser.name} assignmentToEdit={modal.data}/>}
-            {modal.type === 'take-assignment' && <AssignmentTaker assignment={modal.data} studentId={currentUser.id} studentName={currentUser.name} onClose={() => setModal({ type: null })} onSubmit={handleSubmitAssignment}/>}
-            {modal.type === 'create-exam' && <ExamCreator onClose={() => setModal({ type: null })} onCreate={handleCreateExam} teacherId={currentUser.id} teacherName={currentUser.name}/>}
-            {modal.type === 'take-exam' && <ExamTaker exam={modal.data.exam} studentId={currentUser.id} studentName={currentUser.name} onClose={() => setModal({ type: null })} onSubmit={handleSubmitExam} attemptNumber={modal.data.attemptNumber}/>}
-            {modal.type === 'view-submissions' && <ViewSubmissions item={modal.data.item} submissions={modal.data.itemType === 'assignment' ? submissions.filter(s => s.assignmentId === modal.data.item.id) : examSubmissions.filter(s => s.examId === modal.data.item.id)} onClose={() => setModal({ type: null })} onGrade={(sub) => setModal({ type: 'grade-submission', data: { submission: sub, item: modal.data.item, itemType: modal.data.itemType, }})}/>}
-            {modal.type === 'grade-submission' && <GradeSubmission item={modal.data.item} submission={modal.data.submission} itemType={modal.data.itemType} onClose={() => setModal({ type: 'view-submissions', data: { item: modal.data.item, itemType: modal.data.itemType } })} onSaveGrade={handleGradeSubmission}/>}
-            {paymentModalData && <PaymentCheckout paymentDetails={paymentModalData} walletBalance={wallets.find(w => w.userId === currentUser.id)?.balance || 0} onClose={() => setPaymentModalData(null)} onConfirmPayment={handleConfirmPayment}/>}
-            {isVideoCallActive && <VideoCallView onClose={() => setIsVideoCallActive(false)} />}
-            {isUserCreatorOpen && <UserCreator onClose={() => setIsUserCreatorOpen(false)} onCreateUser={handleCreateUserByAdmin}/>}
-            {manageAdminsModalGroup && <ManageChatAdmins group={manageAdminsModalGroup} allUsers={users} onClose={() => setManageAdminsModalGroup(null)} onSave={handleUpdateChatAdmins}/>}
-            {manageChatSettingsModalGroup && <ChatSettingsModal group={manageChatSettingsModalGroup} onClose={() => setManageChatSettingsModalGroup(null)} onSave={handleUpdateChatLock} />}
+            
+            {/* Modals */}
+            {modal.type && (
+                 <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={() => { if(modal.type !== 'take-exam') setModal({type: null})}}></div>
+            )}
+            {modal.type === 'create-assignment' && <AssignmentCreator onClose={() => setModal({type: null})} onSave={handleCreateAssignment} teacherId={currentUser.id} teacherName={currentUser.name} />}
+            {modal.type === 'edit-assignment' && <AssignmentCreator onClose={() => setModal({type: null})} onSave={handleUpdateAssignment} teacherId={currentUser.id} teacherName={currentUser.name} assignmentToEdit={modal.data} />}
+            {modal.type === 'take-assignment' && <AssignmentTaker assignment={modal.data} studentId={currentUser.id} studentName={currentUser.name} onClose={() => setModal({ type: null })} onSubmit={handleSubmitAssignment} />}
+            {modal.type === 'create-exam' && <ExamCreator onClose={() => setModal({ type: null })} onCreate={handleCreateExam} teacherId={currentUser.id} teacherName={currentUser.name} courses={courses} />}
+            {modal.type === 'take-exam' && <ExamTaker exam={modal.data.exam} studentId={currentUser.id} studentName={currentUser.name} onClose={() => setModal({ type: null })} onSubmit={handleSubmitExam} attemptNumber={modal.data.attemptNumber} />}
+            {/* FIX: Use `in` operator as a type guard to correctly filter submissions based on whether they have an `assignmentId` or `examId`. */}
+            {modal.type === 'view-submissions' && <ViewSubmissions item={modal.data.item} submissions={(modal.data.itemType === 'assignment' ? submissions : examSubmissions).filter(s => ('assignmentId' in s && s.assignmentId === modal.data.item.id) || ('examId' in s && s.examId === modal.data.item.id))} onClose={() => setModal({ type: null })} onGrade={(submission) => setModal({ type: 'grade-submission', data: { item: modal.data.item, submission, itemType: modal.data.itemType } })} />}
+            {modal.type === 'grade-submission' && <GradeSubmission item={modal.data.item} submission={modal.data.submission} itemType={modal.data.itemType} onClose={() => setModal({ type: 'view-submissions', data: { item: modal.data.item, itemType: modal.data.itemType }})} onSaveGrade={handleGradeSubmission} />}
+            {isUserCreatorOpen && <UserCreator onClose={() => setIsUserCreatorOpen(false)} onCreateUser={handleCreateUserByAdmin} />}
+            {manageAdminsModalGroup && <ManageChatAdmins group={manageAdminsModalGroup} allUsers={users} onClose={() => setManageAdminsModalGroup(null)} onSave={handleUpdateChatAdmins} />}
+            {manageChatSettingsModalGroup && <ChatSettingsModal group={manageChatSettingsModalGroup} onClose={() => setManageChatSettingsModalGroup(null)} onSave={handleUpdateChatLock}/>}
             {modal.type === 'upload-material' && <MaterialUploader currentUser={currentUser} courses={courses} onClose={() => setModal({ type: null })} onUpload={handleUploadMaterial} />}
-            {modal.type === 'register-hostel' && <HostelRegistrationForm onClose={() => setModal({ type: null })} onRegister={handleRegisterHostel} />}
-            {modal.type === 'create-listing' && <ProductListingForm onClose={() => setModal({ type: null })} onSave={handleCreateListing} />}
-            {modal.type === 'edit-listing' && <ProductListingForm onClose={() => setModal({ type: null })} onSave={handleUpdateListing} listingToEdit={modal.data} />}
-            {modal.type === 'create-event' && <EventCreator onClose={() => setModal({type: null})} onCreate={handleCreateEvent} currentUser={currentUser} />}
+            {modal.type === 'register-hostel' && <HostelRegistrationForm onClose={() => setModal({type: null})} onRegister={handleRegisterHostel}/>}
+            {paymentModalData && <PaymentCheckout paymentDetails={paymentModalData} walletBalance={wallets.find(w=>w.userId===currentUser.id)?.balance || 0} onClose={() => setPaymentModalData(null)} onConfirmPayment={handleConfirmPayment}/>}
+            {serviceBookingModalData && <ServiceBookingModal service={serviceBookingModalData} onClose={() => setServiceBookingModalData(null)} onSubmit={handleConfirmServiceBooking} />}
+            {modal.type === 'create-listing' && <ProductListingForm onClose={() => setModal({type:null})} onSave={async (d) => { await api.createMarketplaceListing({...d, id:`m-${Date.now()}`, sellerId: currentUser.id, sellerName: currentUser.name, createdAt: new Date().toISOString(), isAvailable: true }); setMarketplaceListings(await api.getMarketplaceListings()); setModal({type:null}); }} />}
+            {modal.type === 'edit-listing' && <ProductListingForm onClose={() => setModal({type:null})} onSave={async (d) => { await api.updateMarketplaceListing(d); setMarketplaceListings(await api.getMarketplaceListings()); setModal({type:null}); }} listingToEdit={modal.data} />}
+            {modal.type === 'create-event' && <EventCreator currentUser={currentUser} onClose={() => setModal({type: null})} onCreate={handleCreateEvent} />}
             {modal.type === 'register-service' && <ServiceRegistrationForm onClose={() => setModal({type: null})} onRegister={handleRegisterService} />}
-            {modal.type === 'event-details' && <EventDetailsView event={modal.data} currentUser={currentUser} registrations={eventRegistrations} ticketPurchases={eventTicketPurchases} services={registeredServices} bookings={eventBookings} onBookService={handleInitiateEventBooking} onInitiateTicketPurchase={handleInitiateTicketPurchase} onClose={() => setModal({ type: null })} onRegister={handleRegisterForEvent} setActiveView={setActiveView} />}
-            {modal.type === 'book-uploader' && <BookUploader onClose={() => setModal({type: null})} onCreateBook={handleCreateBook} />}
-            {modal.type === 'book-reader' && <BookReader book={modal.data.book} progress={modal.data.progress} currentUser={currentUser} onClose={() => setModal({type: null})} onProgressUpdate={handleUpdateReadingProgress} onCreateReview={handleCreateBookReview} />}
-            {modal.type === 'book-request-form' && <BookRequestForm onClose={() => setModal({type: null})} onCreateRequest={handleCreateBookRequest} />}
-            {modal.type === 'book-request-manager' && <BookRequestManager requests={bookRequests} onClose={() => setModal({type: null})} onUpdateStatus={handleUpdateBookRequestStatus} />}
+            {modal.type === 'view-event' && <EventDetailsView event={modal.data} currentUser={currentUser} registrations={eventRegistrations} ticketPurchases={eventTicketPurchases} services={registeredServices} bookings={serviceBookings} onClose={() => setModal({type: null})} onRegister={handleRegisterForEvent} onBookService={handleBookService} onInitiateTicketPurchase={handleInitiateTicketPurchase} setActiveView={handleSetActiveView} />}
+            {modal.type === 'upload-book' && <BookUploader onClose={() => setModal({type: null})} onCreateBook={handleCreateBook} />}
+            {modal.type === 'read-book' && <BookReader book={modal.data.book} progress={modal.data.progress} currentUser={currentUser} onClose={() => setModal({type: null})} onProgressUpdate={handleUpdateReadingProgress} onCreateReview={handleCreateReview} />}
+            {modal.type === 'request-book' && <BookRequestForm onClose={() => setModal({type: null})} onCreateRequest={handleCreateBookRequest} />}
+            {modal.type === 'manage-requests' && <BookRequestManager requests={bookRequests} onClose={() => setModal({type: null})} onUpdateStatus={handleUpdateBookRequestStatus} />}
+            {modal.type === 'create-course' && <CourseCreator currentUser={currentUser} onClose={() => setModal({type: null})} onCreateCourse={handleCreateCourse} />}
         </div>
     );
 }

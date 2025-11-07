@@ -13,6 +13,78 @@ interface PaymentCheckoutProps {
     onConfirmPayment: (method: 'card' | 'wallet') => void;
 }
 
+const PaymentSummary: React.FC<{ details: PaymentCheckoutProps['paymentDetails'] }> = ({ details }) => {
+    const { metadata, amount, type, description } = details;
+
+    if (type === 'deposit') {
+         return (
+            <div className="bg-slate-50 border rounded-lg p-4 mb-6">
+                <h4 className="font-bold text-slate-700 mb-2">Transaction Summary</h4>
+                <ul className="text-sm text-slate-600 space-y-1">
+                    <li><strong>Type:</strong> Wallet Deposit</li>
+                </ul>
+                <div className="border-t mt-3 pt-3 flex justify-between items-center font-bold">
+                    <span className="text-slate-800">Total</span>
+                    <span className="text-primary-600 text-lg">${amount.toFixed(2)}</span>
+                </div>
+            </div>
+        )
+    }
+    
+    if (!metadata) {
+        return <p className="text-slate-500 mt-2 text-center">{description}</p>;
+    }
+
+    const renderDetails = () => {
+        switch (metadata.paymentType) {
+            case 'accommodation':
+                return (
+                    <ul className="text-sm text-slate-600 space-y-1">
+                        <li><strong>Hostel:</strong> {metadata.hostelName}</li>
+                        <li><strong>Room:</strong> {metadata.roomNumber} ({metadata.roomType})</li>
+                        <li><strong>Duration:</strong> {metadata.duration}</li>
+                    </ul>
+                );
+            case 'marketplace':
+                return (
+                     <ul className="text-sm text-slate-600 space-y-1">
+                        <li><strong>Item:</strong> {metadata.listingTitle}</li>
+                        <li><strong>Seller:</strong> {metadata.sellerName}</li>
+                    </ul>
+                );
+            case 'event_ticket':
+                 return (
+                     <ul className="text-sm text-slate-600 space-y-1">
+                        <li><strong>Event:</strong> {metadata.eventTitle}</li>
+                        <li><strong>Tickets:</strong> {metadata.quantity}</li>
+                        <li><strong>Price:</strong> ${metadata.pricePerTicket?.toFixed(2)} / ticket</li>
+                    </ul>
+                );
+            case 'service_booking':
+                 return (
+                     <ul className="text-sm text-slate-600 space-y-1">
+                        <li><strong>Service:</strong> {metadata.serviceName}</li>
+                        <li><strong>Provider:</strong> {metadata.providerName}</li>
+                        {metadata.details?.details && <li><strong>Details:</strong> {metadata.details.details}</li>}
+                    </ul>
+                );
+            default:
+                 return <p className="text-slate-500 mt-2">{description}</p>;
+        }
+    };
+
+    return (
+        <div className="bg-slate-50 border rounded-lg p-4 mb-6">
+            <h4 className="font-bold text-slate-700 mb-2">Order Summary</h4>
+            {renderDetails()}
+            <div className="border-t mt-3 pt-3 flex justify-between items-center font-bold">
+                <span className="text-slate-800">Total</span>
+                <span className="text-primary-600 text-lg">${amount.toFixed(2)}</span>
+            </div>
+        </div>
+    )
+}
+
 export const PaymentCheckout: React.FC<PaymentCheckoutProps> = ({ paymentDetails, walletBalance, onClose, onConfirmPayment }) => {
     const [isProcessing, setIsProcessing] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
@@ -33,7 +105,7 @@ export const PaymentCheckout: React.FC<PaymentCheckoutProps> = ({ paymentDetails
     const isWalletApplicable = paymentDetails.type === 'payment' && paymentDetails.metadata?.paymentType !== 'visitor_library_fee';
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4">
             <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full relative">
                 <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
                     <XIcon className="w-6 h-6" />
@@ -49,14 +121,14 @@ export const PaymentCheckout: React.FC<PaymentCheckoutProps> = ({ paymentDetails
                     </div>
                 ) : (
                     <>
-                        <div className="text-center mb-6">
+                        <div className="text-center mb-4">
                             <CreditCardIcon className="w-12 h-12 text-primary-600 mx-auto"/>
                             <h3 className="text-2xl font-bold text-slate-800 mt-2">
                                {paymentDetails.type === 'deposit' ? 'Confirm Deposit' : 'Confirm Payment'}
                             </h3>
-                            <p className="text-slate-500 mt-2">{paymentDetails.description}</p>
-                            <p className="text-4xl font-bold text-primary-600 mt-2">${paymentDetails.amount.toFixed(2)}</p>
                         </div>
+
+                        <PaymentSummary details={paymentDetails} />
 
                         {isWalletApplicable && (
                             <div className="space-y-3">

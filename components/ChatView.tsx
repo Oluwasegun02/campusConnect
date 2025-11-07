@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { User, ChatGroup, ChatMessage, Event, UserRole } from '../types';
-import { PaperAirplaneIcon, MicrophoneIcon, VideoCameraIcon, StopIcon, XIcon, PlayIcon, ShieldCheckIcon, ArrowLeftIcon, Cog6ToothIcon, UserCircleIcon, PaperClipIcon, ArrowDownTrayIcon, TrashIcon } from '../constants';
+import { User, ChatGroup, ChatMessage, Event, UserRole, EventRegistration, EventTicketPurchase } from '../types';
+import { PaperAirplaneIcon, MicrophoneIcon, VideoCameraIcon, StopIcon, XIcon, PlayIcon, ShieldCheckIcon, ArrowLeftIcon, Cog6ToothIcon, UserCircleIcon, PaperClipIcon, ArrowDownTrayIcon, TrashIcon, CalendarDaysIcon, ShoppingCartIcon, WrenchScrewdriverIcon } from '../constants';
 import { AudioPlayer } from './AudioPlayer';
 
 interface ChatViewProps {
@@ -12,8 +12,16 @@ interface ChatViewProps {
     onSendMessage: (groupId: string, content: { text?: string; audioData?: string; audioDuration?: number; imageData?: string; fileName?: string; }) => void;
     onStartVideoCall: () => void;
     onOpenSettings: (group: ChatGroup) => void;
-    setActiveView: (view: string) => void;
+    setActiveView: (view: string, context?: { groupId?: string }) => void;
     onDeleteMessage: (messageId: string) => void;
+    initialActiveGroupId: string | null;
+    setInitialActiveGroupId: (id: string | null) => void;
+    // New props for contextual navigation
+    eventRegistrations: EventRegistration[];
+    eventTicketPurchases: EventTicketPurchase[];
+    onViewEventDetails: (eventId: string) => void;
+    onViewMarketplaceItem: (listingId: string) => void;
+    onViewService: (serviceId: string) => void;
 }
 
 const downloadFile = (fileData: string, fileName: string) => {
@@ -299,28 +307,47 @@ const ChatInput: React.FC<{ onSendMessage: (content: { text?: string; audioData?
 
 
 export const ChatView: React.FC<ChatViewProps> = (props) => {
-    const { currentUser, allUsers, groups, messages, events, onSendMessage, onStartVideoCall, onOpenSettings, setActiveView, onDeleteMessage } = props;
+    const { currentUser, allUsers, groups, messages, onSendMessage, onStartVideoCall, onOpenSettings, setActiveView, onDeleteMessage, initialActiveGroupId, setInitialActiveGroupId, eventRegistrations, eventTicketPurchases, onViewEventDetails, onViewMarketplaceItem, onViewService } = props;
     const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
     const messagesEndRef = useRef<null | HTMLDivElement>(null);
     const [isMobileChatVisible, setIsMobileChatVisible] = useState(false);
 
     const userGroups = useMemo(() => {
+        const registeredEventIds = new Set([
+            ...eventRegistrations.filter(r => r.userId === currentUser.id).map(r => r.eventId),
+            ...eventTicketPurchases.filter(p => p.userId === currentUser.id).map(p => p.eventId)
+        ]);
+
         return groups.filter(g => {
             if (g.isPrivate) {
                 return g.members?.includes(currentUser.id);
             }
             if(currentUser.role === UserRole.ICT_STAFF) return true;
+            if(g.isEventGroup && g.eventId) {
+                // Show if user is an admin (creator) or has registered/bought a ticket
+                return g.adminIds?.includes(currentUser.id) || registeredEventIds.has(g.eventId);
+            }
             return !g.department || // Public group
-                   g.isEventGroup || // All users can see event groups they are part of
                    (g.department === currentUser.department && (!g.level || g.level === currentUser.level))
         });
-    }, [groups, currentUser]);
+    }, [groups, currentUser, eventRegistrations, eventTicketPurchases]);
     
     useEffect(() => {
         if (!activeGroupId && userGroups.length > 0) {
             setActiveGroupId(userGroups[0].id);
         }
     }, [userGroups, activeGroupId]);
+
+    useEffect(() => {
+        if (initialActiveGroupId) {
+            const groupExists = userGroups.some(g => g.id === initialActiveGroupId);
+            if (groupExists) {
+                setActiveGroupId(initialActiveGroupId);
+                setIsMobileChatVisible(true);
+            }
+            setInitialActiveGroupId(null); // Consume the value
+        }
+    }, [initialActiveGroupId, setInitialActiveGroupId, userGroups]);
 
     const activeMessages = useMemo(() => {
         return messages
@@ -391,10 +418,14 @@ export const ChatView: React.FC<ChatViewProps> = (props) => {
                                 <h2 className="text-lg sm:text-xl font-bold text-slate-800 truncate">{activeGroup.name}</h2>
                             </div>
                             <div className="flex items-center gap-2">
-                                {activeGroup.isEventGroup && (
-                                    <button onClick={() => setActiveView('event/booking')} className="text-sm bg-slate-100 text-slate-700 font-semibold py-1 px-3 rounded-lg hover:bg-slate-200 transition">
-                                        View Event
-                                    </button>
+                                {activeGroup.isEventGroup && activeGroup.eventId && (
+                                    <button onClick={() => onViewEventDetails(activeGroup.eventId!)} className="text-sm bg-slate-100 text-slate-700 font-semibold py-1 px-3 rounded-lg hover:bg-slate-200 transition flex items-center gap-1.5"><CalendarDaysIcon className="w-4 h-4" />View Event</button>
+                                )}
+                                {activeGroup.relatedListingId && (
+                                     <button onClick={() => onViewMarketplaceItem(activeGroup.relatedListingId!)} className="text-sm bg-slate-100 text-slate-700 font-semibold py-1 px-3 rounded-lg hover:bg-slate-200 transition flex items-center gap-1.5"><ShoppingCartIcon className="w-4 h-4" />View Item</button>
+                                )}
+                                {activeGroup.relatedServiceId && (
+                                     <button onClick={() => onViewService(activeGroup.relatedServiceId!)} className="text-sm bg-slate-100 text-slate-700 font-semibold py-1 px-3 rounded-lg hover:bg-slate-200 transition flex items-center gap-1.5"><WrenchScrewdriverIcon className="w-4 h-4" />View Service</button>
                                 )}
                                 <button onClick={onStartVideoCall} className="p-2 rounded-full text-slate-500 hover:bg-slate-100 hover:text-primary-600 transition-colors" title="Start Video Call">
                                     <VideoCameraIcon className="w-6 h-6"/>

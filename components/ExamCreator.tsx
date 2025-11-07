@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Exam, AssignmentType, ObjectiveQuestion } from '../types';
+import React, { useState, useMemo } from 'react';
+import { Exam, AssignmentType, ObjectiveQuestion, Course } from '../types';
 import { DEPARTMENTS, LEVELS } from '../constants';
 import { XIcon, PlusCircleIcon } from '../constants';
 
@@ -8,23 +8,25 @@ interface ExamCreatorProps {
     onCreate: (exam: Exam) => void;
     teacherId: string;
     teacherName: string;
+    courses: Course[];
 }
 
-export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onCreate, teacherId, teacherName }) => {
+export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onCreate, teacherId, teacherName, courses }) => {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [type, setType] = useState<AssignmentType>(AssignmentType.OBJECTIVE);
+    const [courseCode, setCourseCode] = useState('');
     const [startTime, setStartTime] = useState('');
     const [endTime, setEndTime] = useState('');
     const [durationMinutes, setDurationMinutes] = useState(60);
-    const [targetDepartments, setTargetDepartments] = useState<string[]>([]);
-    const [targetLevels, setTargetLevels] = useState<number[]>([]);
     const [questions, setQuestions] = useState<ObjectiveQuestion[]>([{ id: `q-${Date.now()}`, questionText: '', options: ['', ''], correctAnswerIndex: 0 }]);
     const [totalMarks, setTotalMarks] = useState(100);
     const [allowRetakes, setAllowRetakes] = useState(false);
     const [maxAttempts, setMaxAttempts] = useState(2);
     const [passingGrade, setPassingGrade] = useState(50);
     const [shuffleQuestions, setShuffleQuestions] = useState(false);
+
+    const teacherCourses = useMemo(() => courses.filter(c => c.creatorId === teacherId), [courses, teacherId]);
 
     const handleAddQuestion = () => {
         setQuestions([...questions, { id: `q-${Date.now()}`, questionText: '', options: ['', ''], correctAnswerIndex: 0 }]);
@@ -69,16 +71,14 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onCreate, tea
         }
     };
 
-    const toggleDepartment = (dept: string) => {
-        setTargetDepartments(prev => prev.includes(dept) ? prev.filter(d => d !== dept) : [...prev, dept]);
-    };
-    
-    const toggleLevel = (level: number) => {
-        setTargetLevels(prev => prev.includes(level) ? prev.filter(l => l !== level) : [...prev, level]);
-    };
-
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        const selectedCourse = courses.find(c => c.code === courseCode);
+        if (!selectedCourse) {
+            alert("Please select a valid course.");
+            return;
+        }
+
         const newExam: Exam = {
             id: `exam-${Date.now()}`,
             title,
@@ -89,10 +89,11 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onCreate, tea
             durationMinutes,
             creatorId: teacherId,
             creatorName: teacherName,
-            targetDepartments,
-            targetLevels,
+            targetDepartments: [selectedCourse.department],
+            targetLevels: [selectedCourse.level],
             questions: type === AssignmentType.OBJECTIVE ? questions : [],
             totalMarks,
+            courseCode,
             retakePolicy: {
                 allowed: allowRetakes,
                 maxAttempts: allowRetakes ? maxAttempts : 1,
@@ -118,9 +119,12 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onCreate, tea
                             <input type="text" value={title} onChange={e => setTitle(e.target.value)} required className="w-full border-slate-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Exam Type</label>
-                            <select value={type} onChange={e => setType(e.target.value as AssignmentType)} className="w-full border-slate-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500">
-                                {Object.values(AssignmentType).map(t => <option key={t} value={t}>{t}</option>)}
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Course</label>
+                            <select value={courseCode} onChange={e => setCourseCode(e.target.value)} required className="w-full border-slate-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 bg-white">
+                                <option value="" disabled>Select a course</option>
+                                {teacherCourses.map(course => (
+                                    <option key={course.id} value={course.code}>{course.code} - {course.title}</option>
+                                ))}
                             </select>
                         </div>
                     </div>
@@ -182,19 +186,7 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onClose, onCreate, tea
                             <span className="font-medium text-slate-700">Shuffle question order for each student</span>
                         </label>
                     </div>
-                     {/* Targeting */}
-                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">Target Departments</label>
-                        <div className="flex flex-wrap gap-2">
-                            {DEPARTMENTS.map(dept => <button type="button" key={dept} onClick={() => toggleDepartment(dept)} className={`px-3 py-1 text-sm rounded-full border ${targetDepartments.includes(dept) ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-slate-700 hover:bg-slate-50'}`}>{dept}</button>)}
-                        </div>
-                     </div>
-                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">Target Levels</label>
-                        <div className="flex flex-wrap gap-2">
-                             {LEVELS.map(level => <button type="button" key={level} onClick={() => toggleLevel(level)} className={`px-3 py-1 text-sm rounded-full border ${targetLevels.includes(level) ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-slate-700 hover:bg-slate-50'}`}>{level}</button>)}
-                        </div>
-                     </div>
+                     
                     {/* Questions for Objective */}
                     {type === AssignmentType.OBJECTIVE && (
                         <div className="space-y-4">

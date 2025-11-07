@@ -1,5 +1,5 @@
-import { User, Assignment, Submission, Exam, ExamSubmission, ChatGroup, ChatMessage, AttendanceRecord, Course, CourseRegistration, FeeStatement, PaymentRecord, Hostel, Room, AccommodationApplication, CourseMaterial, UserWallet, WalletTransaction, MarketplaceListing, MarketplaceOrder, Event, EventRegistration, RegisteredService, EventBooking, LibraryBook, ReadingProgress, VisitorPayment, BookRequest, BookReview, EventTicketPurchase } from '../types';
-import { MOCK_USERS, MOCK_CHAT_GROUPS, MOCK_CHAT_MESSAGES, MOCK_COURSES, MOCK_FEE_STATEMENTS, MOCK_HOSTELS, MOCK_ROOMS, MOCK_WALLETS, MOCK_EXAMS, MOCK_EXAM_SUBMISSIONS, MOCK_MARKETPLACE_LISTINGS, MOCK_EVENTS, MOCK_REGISTERED_SERVICES, MOCK_LIBRARY_BOOKS, MOCK_BOOK_REQUESTS, MOCK_BOOK_REVIEWS, MOCK_TICKET_PURCHASES } from '../constants';
+import { User, Assignment, Submission, Exam, ExamSubmission, ChatGroup, ChatMessage, AttendanceRecord, Course, CourseRegistration, FeeStatement, PaymentRecord, Hostel, Room, AccommodationApplication, CourseMaterial, UserWallet, WalletTransaction, MarketplaceListing, MarketplaceOrder, Event, EventRegistration, RegisteredService, ServiceBooking, LibraryBook, ReadingProgress, VisitorPayment, BookRequest, BookReview, EventTicketPurchase } from '../types';
+import { MOCK_USERS, MOCK_ASSIGNMENTS, MOCK_CHAT_GROUPS, MOCK_CHAT_MESSAGES, MOCK_COURSES, MOCK_FEE_STATEMENTS, MOCK_HOSTELS, MOCK_ROOMS, MOCK_WALLETS, MOCK_EXAMS, MOCK_EXAM_SUBMISSIONS, MOCK_MARKETPLACE_LISTINGS, MOCK_EVENTS, MOCK_REGISTERED_SERVICES, MOCK_LIBRARY_BOOKS, MOCK_BOOK_REQUESTS, MOCK_BOOK_REVIEWS, MOCK_TICKET_PURCHASES } from '../constants';
 
 // --- HELPERS ---
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -29,7 +29,7 @@ const STORAGE_KEYS = {
     EVENTS: 'events',
     EVENT_REGISTRATIONS: 'eventRegistrations',
     REGISTERED_SERVICES: 'registeredServices',
-    EVENT_BOOKINGS: 'eventBookings',
+    SERVICE_BOOKINGS: 'serviceBookings',
     LIBRARY_BOOKS: 'libraryBooks',
     READING_PROGRESS: 'readingProgress',
     VISITOR_PAYMENTS: 'visitorPayments',
@@ -63,7 +63,7 @@ const saveToStorage = <T,>(key: string, value: T) => {
 
 const initializeStorage = () => {
     if (!localStorage.getItem(STORAGE_KEYS.USERS)) saveToStorage(STORAGE_KEYS.USERS, MOCK_USERS);
-    if (!localStorage.getItem(STORAGE_KEYS.ASSIGNMENTS)) saveToStorage(STORAGE_KEYS.ASSIGNMENTS, []);
+    if (!localStorage.getItem(STORAGE_KEYS.ASSIGNMENTS)) saveToStorage(STORAGE_KEYS.ASSIGNMENTS, MOCK_ASSIGNMENTS);
     if (!localStorage.getItem(STORAGE_KEYS.SUBMISSIONS)) saveToStorage(STORAGE_KEYS.SUBMISSIONS, []);
     if (!localStorage.getItem(STORAGE_KEYS.EXAMS)) saveToStorage(STORAGE_KEYS.EXAMS, MOCK_EXAMS);
     if (!localStorage.getItem(STORAGE_KEYS.EXAM_SUBMISSIONS)) saveToStorage(STORAGE_KEYS.EXAM_SUBMISSIONS, MOCK_EXAM_SUBMISSIONS);
@@ -85,7 +85,7 @@ const initializeStorage = () => {
     if (!localStorage.getItem(STORAGE_KEYS.EVENTS)) saveToStorage(STORAGE_KEYS.EVENTS, MOCK_EVENTS);
     if (!localStorage.getItem(STORAGE_KEYS.EVENT_REGISTRATIONS)) saveToStorage(STORAGE_KEYS.EVENT_REGISTRATIONS, []);
     if (!localStorage.getItem(STORAGE_KEYS.REGISTERED_SERVICES)) saveToStorage(STORAGE_KEYS.REGISTERED_SERVICES, MOCK_REGISTERED_SERVICES);
-    if (!localStorage.getItem(STORAGE_KEYS.EVENT_BOOKINGS)) saveToStorage(STORAGE_KEYS.EVENT_BOOKINGS, []);
+    if (!localStorage.getItem(STORAGE_KEYS.SERVICE_BOOKINGS)) saveToStorage(STORAGE_KEYS.SERVICE_BOOKINGS, []);
     if (!localStorage.getItem(STORAGE_KEYS.LIBRARY_BOOKS)) saveToStorage(STORAGE_KEYS.LIBRARY_BOOKS, MOCK_LIBRARY_BOOKS);
     if (!localStorage.getItem(STORAGE_KEYS.READING_PROGRESS)) saveToStorage(STORAGE_KEYS.READING_PROGRESS, []);
     if (!localStorage.getItem(STORAGE_KEYS.VISITOR_PAYMENTS)) saveToStorage(STORAGE_KEYS.VISITOR_PAYMENTS, []);
@@ -242,6 +242,51 @@ export const getOrCreatePrivateChat = async (user1Id: string, user2Id: string, l
     return newGroup.id;
 };
 
+export const getOrCreatePrivateChatForService = async (user1Id: string, user2Id: string, service: RegisteredService): Promise<string> => {
+    await sleep(400);
+    const allGroups = getFromStorage<ChatGroup[]>(STORAGE_KEYS.CHAT_GROUPS, []);
+    
+    const existingGroup = allGroups.find(g => 
+        g.isPrivate && 
+        g.relatedServiceId === service.id &&
+        g.members?.includes(user1Id) && 
+        g.members?.includes(user2Id)
+    );
+
+    if (existingGroup) {
+        return existingGroup.id;
+    }
+
+    const user1 = getFromStorage<User[]>(STORAGE_KEYS.USERS, []).find(u => u.id === user1Id);
+    const user2 = getFromStorage<User[]>(STORAGE_KEYS.USERS, []).find(u => u.id === user2Id);
+
+    const newGroup: ChatGroup = {
+        id: `dm-serv-${Date.now()}`,
+        name: `Inquiry: ${service.serviceName}`,
+        isPrivate: true,
+        members: [user1Id, user2Id],
+        relatedServiceId: service.id,
+        isLocked: false,
+        adminIds: [],
+    };
+
+    saveToStorage(STORAGE_KEYS.CHAT_GROUPS, [...allGroups, newGroup]);
+    
+    const initialMessage: ChatMessage = {
+      id: `msg-${Date.now()}`,
+      groupId: newGroup.id,
+      senderId: 'system',
+      senderName: 'System',
+      timestamp: new Date().toISOString(),
+      type: 'text',
+      text: `${user1?.name} started a chat with ${user2?.name} about "${service.serviceName}".`
+    };
+    const allMessages = getFromStorage<ChatMessage[]>(STORAGE_KEYS.CHAT_MESSAGES, []);
+    saveToStorage(STORAGE_KEYS.CHAT_MESSAGES, [...allMessages, initialMessage]);
+
+    return newGroup.id;
+};
+
 
 export const getAttendanceRecords = () => fetchData<AttendanceRecord>(STORAGE_KEYS.ATTENDANCE);
 export const saveAttendanceRecords = async (records: AttendanceRecord[], date: string, courseId: string) => {
@@ -254,6 +299,7 @@ export const saveAttendanceRecords = async (records: AttendanceRecord[], date: s
 };
 
 export const getCourses = () => fetchData<Course>(STORAGE_KEYS.COURSES);
+export const createCourse = (course: Course) => createData<Course>(STORAGE_KEYS.COURSES, course);
 
 export const getCourseRegistrations = () => fetchData<CourseRegistration>(STORAGE_KEYS.REGISTRATIONS);
 export const saveCourseRegistrations = async (registrations: CourseRegistration[]) => {
@@ -304,7 +350,22 @@ export const updateMarketplaceListing = (listing: MarketplaceListing) => updateD
 export const deleteMarketplaceListing = (id: string) => deleteData<MarketplaceListing>(STORAGE_KEYS.MARKETPLACE_LISTINGS, id);
 
 export const getMarketplaceOrders = () => fetchData<MarketplaceOrder>(STORAGE_KEYS.MARKETPLACE_ORDERS);
-export const createMarketplaceOrder = (order: MarketplaceOrder) => createData<MarketplaceOrder>(STORAGE_KEYS.MARKETPLACE_ORDERS, order);
+export const createMarketplaceOrder = async (order: MarketplaceOrder): Promise<MarketplaceOrder> => {
+    await sleep(400);
+    const listings = getFromStorage<MarketplaceListing[]>(STORAGE_KEYS.MARKETPLACE_LISTINGS, []);
+    const listing = listings.find(l => l.id === order.listingId);
+    if (listing && listing.quantityAvailable > 0) {
+        const newQuantity = listing.quantityAvailable - 1;
+        const updatedListing = {
+            ...listing,
+            quantityAvailable: newQuantity,
+            isAvailable: newQuantity > 0,
+        };
+        updateMarketplaceListing(updatedListing);
+        return createData<MarketplaceOrder>(STORAGE_KEYS.MARKETPLACE_ORDERS, order);
+    }
+    throw new Error("Item is out of stock.");
+};
 
 // Events API
 export const getEvents = () => fetchData<Event>(STORAGE_KEYS.EVENTS);
@@ -344,8 +405,8 @@ export const getRegisteredServices = () => fetchData<RegisteredService>(STORAGE_
 export const createRegisteredService = (service: RegisteredService) => createData<RegisteredService>(STORAGE_KEYS.REGISTERED_SERVICES, service);
 export const updateRegisteredService = (service: RegisteredService) => updateData<RegisteredService>(STORAGE_KEYS.REGISTERED_SERVICES, service);
 
-export const getEventBookings = () => fetchData<EventBooking>(STORAGE_KEYS.EVENT_BOOKINGS);
-export const createEventBooking = (booking: EventBooking) => createData<EventBooking>(STORAGE_KEYS.EVENT_BOOKINGS, booking);
+export const getServiceBookings = () => fetchData<ServiceBooking>(STORAGE_KEYS.SERVICE_BOOKINGS);
+export const createServiceBooking = (booking: ServiceBooking) => createData<ServiceBooking>(STORAGE_KEYS.SERVICE_BOOKINGS, booking);
 
 // Library API
 export const getLibraryBooks = () => fetchData<LibraryBook>(STORAGE_KEYS.LIBRARY_BOOKS);
