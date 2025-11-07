@@ -51,31 +51,34 @@ export const AssignmentTaker: React.FC<AssignmentTakerProps> = ({ assignment, st
         return `${d > 0 ? `${d}d ` : ''}${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     };
 
-    // FIX: Refactor state updates to handle the union type `number[] | TheoryAnswer[]` correctly,
-    // ensuring type safety and immutability.
-    const handleAnswerChange = (index: number, value: string | number) => {
-        if (assignment.type === AssignmentType.THEORY) {
-            setAnswers(prev => {
-                const newAnswers = [...(prev as TheoryAnswer[])];
-                newAnswers[index] = { ...newAnswers[index], text: value as string };
-                return newAnswers;
-            });
-        } else {
-            setAnswers(prev => {
-                const newAnswers = [...(prev as number[])];
-                newAnswers[index] = value as number;
-                return newAnswers;
-            });
-        }
+    const handleAnswerChange = (index: number, value: string) => {
+        setAnswers(prev => {
+            const newAnswers = [...(prev as TheoryAnswer[])];
+            // Create a new object for the specific answer to ensure immutability
+            const newAnswer: TheoryAnswer = { ...newAnswers[index], text: value };
+            newAnswers[index] = newAnswer;
+            return newAnswers;
+        });
+    };
+    
+    const handleObjectiveAnswerChange = (index: number, value: number) => {
+        setAnswers(prev => {
+            const newAnswers = [...(prev as number[])];
+            newAnswers[index] = value;
+            return newAnswers;
+        });
     };
 
     const handleImageUpload = (index: number, file: File) => {
-        if (file && file.type.startsWith('image/') && assignment.type === AssignmentType.THEORY) {
+        if (file && file.type.startsWith('image/')) {
             const reader = new FileReader();
             reader.onload = (e) => {
+                const imageBase64 = e.target?.result as string;
                 setAnswers(prev => {
                     const newAnswers = [...(prev as TheoryAnswer[])];
-                    newAnswers[index] = { ...newAnswers[index], image: e.target?.result as string };
+                    // Create a new object for the specific answer to ensure immutability
+                    const newAnswer: TheoryAnswer = { ...newAnswers[index], image: imageBase64 };
+                    newAnswers[index] = newAnswer;
                     return newAnswers;
                 });
             };
@@ -86,17 +89,19 @@ export const AssignmentTaker: React.FC<AssignmentTakerProps> = ({ assignment, st
     };
     
     const handleFileUpload = async (index: number, file: File) => {
-        if (file && assignment.type === AssignmentType.THEORY) {
+        if (file) {
             try {
                 const fileData = await fileToBase64(file);
                 setAnswers(prev => {
                     const newAnswers = [...(prev as TheoryAnswer[])];
-                    newAnswers[index] = { 
+                    // Create a new object for the specific answer to ensure immutability
+                    const newAnswer: TheoryAnswer = { 
                         ...newAnswers[index],
                         fileData: fileData,
                         fileName: file.name,
                         fileType: file.type
                     };
+                    newAnswers[index] = newAnswer;
                     return newAnswers;
                 });
             } catch (error) {
@@ -195,7 +200,7 @@ export const AssignmentTaker: React.FC<AssignmentTakerProps> = ({ assignment, st
                                                         type="radio"
                                                         name={`question-${qIndex}`}
                                                         checked={(answers as number[])[qIndex] === oIndex}
-                                                        onChange={() => handleAnswerChange(qIndex, oIndex)}
+                                                        onChange={() => handleObjectiveAnswerChange(qIndex, oIndex)}
                                                         required
                                                         className="focus:ring-primary-500 h-4 w-4 text-primary-600 border-slate-300"
                                                     />

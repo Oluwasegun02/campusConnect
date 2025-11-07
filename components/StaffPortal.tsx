@@ -34,18 +34,14 @@ export const StaffPortal: React.FC<StaffPortalProps> = (props) => {
     
     const [activeTab, setActiveTab] = useState('users');
 
-    const TabButton: React.FC<{ tabId: string, children: React.ReactNode }> = ({ tabId, children }) => (
-        <button
-            onClick={() => setActiveTab(tabId)}
-            className={`${
-                activeTab === tabId
-                    ? 'border-primary-500 text-primary-600'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors focus:outline-none`}
-        >
-            {children}
-        </button>
-    );
+    const tabs = [
+        { id: 'users', name: 'User Management' },
+        { id: 'chats', name: 'Chat Management' },
+        { id: 'content', name: 'Content Management' },
+        { id: 'accommodation', name: 'Hostel Management' },
+        { id: 'sellers', name: 'Seller Verification' },
+        { id: 'services', name: 'Service Verification' },
+    ];
     
     const sellerApplicants = useMemo(() => {
         return users.filter(u => u.sellerApplicationStatus === 'pending');
@@ -68,15 +64,19 @@ export const StaffPortal: React.FC<StaffPortalProps> = (props) => {
         <div className="space-y-6">
             <h2 className="text-3xl font-bold text-slate-800">ICT Staff Portal</h2>
             
-            <div className="border-b border-slate-200">
-                <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-                    <TabButton tabId="users">User Management</TabButton>
-                    <TabButton tabId="chats">Chat Management</TabButton>
-                    <TabButton tabId="content">Content Management</TabButton>
-                    <TabButton tabId="accommodation">Hostel Management</TabButton>
-                    <TabButton tabId="sellers">Seller Verification</TabButton>
-                    <TabButton tabId="services">Service Verification</TabButton>
-                </nav>
+            <div>
+                <label htmlFor="staff-portal-tabs" className="sr-only">Select a tab</label>
+                <select
+                    id="staff-portal-tabs"
+                    name="staff-portal-tabs"
+                    className="block w-full pl-3 pr-10 py-2 text-base border-slate-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md shadow-sm"
+                    value={activeTab}
+                    onChange={(e) => setActiveTab(e.target.value)}
+                >
+                    {tabs.map(tab => (
+                        <option key={tab.id} value={tab.id}>{tab.name}</option>
+                    ))}
+                </select>
             </div>
             
             {activeTab === 'users' && (

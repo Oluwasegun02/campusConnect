@@ -145,8 +145,16 @@ export interface ChatGroup {
   // New fields for direct messaging
   isPrivate?: boolean;
   members?: string[]; // [userId1, userId2]
-  relatedListingId?: string; // Link to marketplace item
+  lastContext?: {
+    type: 'marketplace' | 'service';
+    itemId: string;
+    itemName: string;
+  };
+  // New fields for public service/seller groups
+  isServiceGroup?: boolean;
   relatedServiceId?: string; // Link to service
+  isSellerGroup?: boolean;
+  relatedSellerId?: string;
 }
 
 export interface ChatMessage {

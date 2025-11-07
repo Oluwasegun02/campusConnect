@@ -1,12 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { User, MarketplaceListing } from '../types';
-import { SearchIcon, ChatBubbleOvalLeftEllipsisIcon } from '../constants';
+import { User, MarketplaceListing, ChatGroup } from '../types';
+import { SearchIcon, ChatBubbleOvalLeftEllipsisIcon, UserGroupIcon } from '../constants';
 import { SellerDashboard } from './SellerDashboard';
 import * as api from '../api/mockApi';
 
 interface MarketplaceViewProps {
     currentUser: User;
     listings: MarketplaceListing[];
+    chatGroups: ChatGroup[];
     onPurchase: (listing: MarketplaceListing) => void;
     onApplySeller: () => void;
     onCreateListing: () => void;
@@ -17,7 +18,7 @@ interface MarketplaceViewProps {
     onDidUseInitialSearch?: () => void;
 }
 
-const ProductCard: React.FC<{ listing: MarketplaceListing; onPurchase: () => void; onMessageSeller: () => void; isOwner: boolean; }> = ({ listing, onPurchase, onMessageSeller, isOwner }) => (
+const ProductCard: React.FC<{ listing: MarketplaceListing; onPurchase: () => void; onMessageSeller: () => void; onVisitShop: () => void; isOwner: boolean; }> = ({ listing, onPurchase, onMessageSeller, onVisitShop, isOwner }) => (
     <div className="bg-white rounded-lg shadow-md overflow-hidden flex flex-col group">
         <div className="relative h-48 bg-slate-200">
             <img src={listing.image} alt={listing.title} className="w-full h-full object-cover"/>
@@ -41,21 +42,31 @@ const ProductCard: React.FC<{ listing: MarketplaceListing; onPurchase: () => voi
             <p className="text-sm text-slate-600 mt-2 line-clamp-2 flex-grow">{listing.description}</p>
             <div className="flex justify-between items-end mt-2">
                 <p className="text-2xl font-bold text-primary-600">${listing.price.toFixed(2)}</p>
-                 <button 
-                    onClick={onMessageSeller}
-                    disabled={isOwner}
-                    className="p-2 text-slate-500 hover:bg-slate-100 hover:text-primary-600 rounded-full transition-colors disabled:opacity-0"
-                    title="Message Seller"
-                >
-                    <ChatBubbleOvalLeftEllipsisIcon className="w-6 h-6"/>
-                </button>
+                 <div className="flex items-center space-x-1">
+                    <button 
+                        onClick={onVisitShop}
+                        disabled={isOwner}
+                        className="p-2 text-slate-500 hover:bg-slate-100 hover:text-primary-600 rounded-full transition-colors disabled:opacity-0"
+                        title="Visit Seller's Shop"
+                    >
+                        <UserGroupIcon className="w-6 h-6"/>
+                    </button>
+                    <button 
+                        onClick={onMessageSeller}
+                        disabled={isOwner}
+                        className="p-2 text-slate-500 hover:bg-slate-100 hover:text-primary-600 rounded-full transition-colors disabled:opacity-0"
+                        title="Message Seller about item"
+                    >
+                        <ChatBubbleOvalLeftEllipsisIcon className="w-6 h-6"/>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 );
 
 
-export const MarketplaceView: React.FC<MarketplaceViewProps> = ({ currentUser, listings, onPurchase, onApplySeller, onCreateListing, onDeleteListing, onEditListing, setActiveView, initialSearch, onDidUseInitialSearch }) => {
+export const MarketplaceView: React.FC<MarketplaceViewProps> = ({ currentUser, listings, chatGroups, onPurchase, onApplySeller, onCreateListing, onDeleteListing, onEditListing, setActiveView, initialSearch, onDidUseInitialSearch }) => {
     const [searchTerm, setSearchTerm] = useState(initialSearch || '');
     const [category, setCategory] = useState('All');
     const [activeTab, setActiveTab] = useState<'browse' | 'dashboard'>('browse');
@@ -71,7 +82,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({ currentUser, l
     
     const filteredListings = useMemo(() => {
         return listings.filter(l => 
-            (l.title.toLowerCase().includes(searchTerm.toLowerCase()) || l.description.toLowerCase().includes(searchTerm.toLowerCase())) &&
+            (l.title.toLowerCase().includes(searchTerm.toLowerCase()) || l.description.toLowerCase().includes(searchTerm.toLowerCase()) || l.sellerName.toLowerCase().includes(searchTerm.toLowerCase())) &&
             (category === 'All' || l.category === category)
         );
     }, [listings, searchTerm, category]);
@@ -80,10 +91,24 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({ currentUser, l
         return listings.filter(l => l.sellerId === currentUser.id);
     }, [listings, currentUser.id]);
 
-    const handleMessageSeller = async (sellerId: string, listing: MarketplaceListing) => {
-        if (currentUser.id === sellerId) return;
-        const groupId = await api.getOrCreatePrivateChat(currentUser.id, sellerId, listing);
+    const handleMessageSeller = async (listing: MarketplaceListing) => {
+        if (currentUser.id === listing.sellerId) return;
+        const context = {
+            type: 'marketplace' as const,
+            itemId: listing.id,
+            itemName: listing.title,
+        };
+        const groupId = await api.getOrCreatePrivateChat(currentUser.id, listing.sellerId, context);
         setActiveView('chat', { groupId });
+    };
+
+    const handleVisitShop = (sellerId: string) => {
+        const sellerShopGroup = chatGroups.find(g => g.isSellerGroup && g.relatedSellerId === sellerId);
+        if (sellerShopGroup) {
+            setActiveView('chat', { groupId: sellerShopGroup.id });
+        } else {
+            alert("This seller doesn't have a public shop chat available.");
+        }
     };
 
     return (
@@ -120,7 +145,7 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({ currentUser, l
                     <div className="flex flex-col md:flex-row justify-between items-center gap-4 p-4 bg-white rounded-lg shadow-sm border">
                         <div className="relative w-full md:w-2/5">
                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><SearchIcon className="w-5 h-5 text-slate-400" /></div>
-                            <input type="text" placeholder="Search for items..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-full"/>
+                            <input type="text" placeholder="Search items or sellers..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-full"/>
                         </div>
                         <div className="flex items-center space-x-2 overflow-x-auto pb-2">
                            {categories.map(cat => (
@@ -135,7 +160,8 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({ currentUser, l
                                 key={listing.id} 
                                 listing={listing} 
                                 onPurchase={() => onPurchase(listing)} 
-                                onMessageSeller={() => handleMessageSeller(listing.sellerId, listing)}
+                                onMessageSeller={() => handleMessageSeller(listing)}
+                                onVisitShop={() => handleVisitShop(listing.sellerId)}
                                 isOwner={listing.sellerId === currentUser.id}
                             />
                         ))}

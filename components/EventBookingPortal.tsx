@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { User, Event, EventRegistration, RegisteredService, ServiceBooking, ServiceCategory, EventTicketPurchase } from '../types';
+import { User, Event, EventRegistration, RegisteredService, ServiceBooking, ServiceCategory, EventTicketPurchase, ChatGroup } from '../types';
 import { XIcon, GlobeAltIcon, MapPinIcon, UserGroupIcon, VideoCameraIcon, TicketIcon, PlusCircleIcon, CheckCircleIcon, SparklesIcon, SearchIcon, ChatBubbleOvalLeftEllipsisIcon } from '../constants';
 import * as api from '../api/mockApi';
 
@@ -10,6 +10,7 @@ interface EventPortalViewProps {
     ticketPurchases: EventTicketPurchase[];
     services: RegisteredService[];
     bookings: ServiceBooking[];
+    chatGroups: ChatGroup[];
     onRegisterForEvent: (eventId: string) => void;
     onViewDetails: (event: Event) => void;
     onCreateEvent: () => void;
@@ -58,7 +59,7 @@ const EventCard: React.FC<{ event: Event; onAction: () => void; onViewDetails: (
     );
 };
 
-const ServiceCard: React.FC<{ service: RegisteredService; onBook: () => void; onMessage: () => void; isOwner: boolean; }> = ({ service, onBook, onMessage, isOwner }) => {
+const ServiceCard: React.FC<{ service: RegisteredService; onBook: () => void; onMessage: () => void; onOpenPublicChat: () => void; isOwner: boolean; hasPublicChat: boolean; }> = ({ service, onBook, onMessage, onOpenPublicChat, isOwner, hasPublicChat }) => {
     return (
         <div className="bg-white rounded-lg shadow-md overflow-hidden flex flex-col group p-4">
             <h3 className="text-lg font-bold text-slate-800">{service.serviceName}</h3>
@@ -66,19 +67,26 @@ const ServiceCard: React.FC<{ service: RegisteredService; onBook: () => void; on
             <p className="text-sm text-slate-600 mt-2 flex-grow">{service.description}</p>
             <div className="flex justify-between items-end mt-4">
                 <p className="text-2xl font-bold text-primary-600">${service.price.toFixed(2)}</p>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                     {hasPublicChat && <button 
+                        onClick={onOpenPublicChat}
+                        className="p-2 text-slate-500 hover:bg-slate-100 hover:text-primary-600 rounded-full transition-colors"
+                        title="Public Q&A"
+                    >
+                        <UserGroupIcon className="w-6 h-6"/>
+                    </button>}
                      <button 
                         onClick={onMessage}
                         disabled={isOwner}
                         className="p-2 text-slate-500 hover:bg-slate-100 hover:text-primary-600 rounded-full transition-colors disabled:opacity-50"
-                        title="Message Provider"
+                        title="Message Provider Privately"
                     >
                         <ChatBubbleOvalLeftEllipsisIcon className="w-6 h-6"/>
                     </button>
                     <button 
                         onClick={onBook}
                         disabled={isOwner}
-                        className="bg-primary-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-primary-700 disabled:bg-slate-400"
+                        className="bg-primary-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-primary-700 disabled:bg-slate-400"
                     >
                         {isOwner ? "Your Service" : "Book"}
                     </button>
@@ -90,7 +98,7 @@ const ServiceCard: React.FC<{ service: RegisteredService; onBook: () => void; on
 
 
 export const EventPortalView: React.FC<EventPortalViewProps> = (props) => {
-    const { currentUser, events, registrations, ticketPurchases, services, onRegisterForEvent, onViewDetails, onCreateEvent, onRegisterService, onBookServiceNoEvent, setActiveView, initialSearch, initialTab, onDidUseInitialSearch } = props;
+    const { currentUser, events, registrations, ticketPurchases, services, chatGroups, onRegisterForEvent, onViewDetails, onCreateEvent, onRegisterService, onBookServiceNoEvent, setActiveView, initialSearch, initialTab, onDidUseInitialSearch } = props;
     const [activeTab, setActiveTab] = useState<'browse-events' | 'my-events' | 'browse-services'>(initialTab || 'browse-events');
     const [searchTerm, setSearchTerm] = useState(initialSearch || '');
     const [serviceCategory, setServiceCategory] = useState<ServiceCategory | 'All'>('All');
@@ -132,8 +140,22 @@ export const EventPortalView: React.FC<EventPortalViewProps> = (props) => {
 
     const handleMessageProvider = async (service: RegisteredService) => {
         if (currentUser.id === service.providerId) return;
-        const groupId = await api.getOrCreatePrivateChatForService(currentUser.id, service.providerId, service);
+        const context = {
+            type: 'service' as const,
+            itemId: service.id,
+            itemName: service.serviceName,
+        };
+        const groupId = await api.getOrCreatePrivateChat(currentUser.id, service.providerId, context);
         setActiveView('chat', { groupId });
+    };
+
+    const handleOpenPublicChat = (service: RegisteredService) => {
+        const publicGroup = chatGroups.find(g => g.isServiceGroup && g.relatedServiceId === service.id);
+        if (publicGroup) {
+            setActiveView('chat', { groupId: publicGroup.id });
+        } else {
+            alert("Could not find the public chat for this service.");
+        }
     };
 
     const TabButton: React.FC<{tabId: typeof activeTab, children: React.ReactNode}> = ({ tabId, children }) => (
@@ -210,7 +232,9 @@ export const EventPortalView: React.FC<EventPortalViewProps> = (props) => {
                         service={service}
                         onBook={() => onBookServiceNoEvent(service)}
                         onMessage={() => handleMessageProvider(service)}
+                        onOpenPublicChat={() => handleOpenPublicChat(service)}
                         isOwner={service.providerId === currentUser.id}
+                        hasPublicChat={chatGroups.some(g => g.isServiceGroup && g.relatedServiceId === service.id)}
                     />
                 ))}
             </div>

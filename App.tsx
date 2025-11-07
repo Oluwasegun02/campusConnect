@@ -379,6 +379,14 @@ export default function App() {
             setActiveView('events');
         }
     };
+    
+    const handleViewSellerItems = (sellerId: string) => {
+        const seller = users.find(u => u.id === sellerId);
+        if (seller) {
+            setInitialMarketplaceSearch(seller.name); // Search by seller name as a proxy
+            setActiveView('marketplace');
+        }
+    };
 
 
     const handleLogin = async (email: string, password: string) => {
@@ -416,6 +424,10 @@ export default function App() {
         if (currentUser?.id === updated.id) {
             setCurrentUser(updated);
             await api.login(updated.email, updated.password); // re-login to update session
+        }
+        // If a seller was just approved, refresh chat groups
+        if (updated.sellerApplicationStatus === 'approved') {
+            api.getChatGroups().then(setChatGroups);
         }
         return updated;
     };
@@ -1012,6 +1024,9 @@ export default function App() {
         if (service) {
             const updated = await api.updateRegisteredService({ ...service, status });
             setRegisteredServices(prev => prev.map(s => s.id === serviceId ? updated : s));
+            if (status === 'Approved') {
+                api.getChatGroups().then(setChatGroups);
+            }
         }
     };
     
@@ -1313,7 +1328,7 @@ export default function App() {
             case 'grades':
                 return <GradesView assignments={assignments} submissions={submissions.filter(s => s.studentId === currentUser.id)} exams={exams} examSubmissions={examSubmissions.filter(s => s.studentId === currentUser.id)} />;
             case 'chat':
-                return <ChatView currentUser={currentUser} allUsers={users} groups={chatGroups} messages={chatMessages} events={events} onSendMessage={handleSendMessage} onStartVideoCall={() => setIsVideoCallActive(true)} onOpenSettings={(group) => setManageChatSettingsModalGroup(group)} setActiveView={handleSetActiveView} onDeleteMessage={handleDeleteMessage} initialActiveGroupId={initialActiveGroupId} setInitialActiveGroupId={setInitialActiveGroupId} eventRegistrations={eventRegistrations} eventTicketPurchases={eventTicketPurchases} onViewEventDetails={handleViewEventDetails} onViewMarketplaceItem={handleViewMarketplaceItem} onViewService={handleViewService} />
+                return <ChatView currentUser={currentUser} allUsers={users} groups={chatGroups} messages={chatMessages} events={events} onSendMessage={handleSendMessage} onStartVideoCall={() => setIsVideoCallActive(true)} onOpenSettings={(group) => setManageChatSettingsModalGroup(group)} setActiveView={handleSetActiveView} onDeleteMessage={handleDeleteMessage} initialActiveGroupId={initialActiveGroupId} setInitialActiveGroupId={setInitialActiveGroupId} eventRegistrations={eventRegistrations} eventTicketPurchases={eventTicketPurchases} onViewEventDetails={handleViewEventDetails} onViewMarketplaceItem={handleViewMarketplaceItem} onViewService={handleViewService} onViewSellerItems={handleViewSellerItems}/>
             case 'attendance':
                 return <AttendanceView currentUser={currentUser} allUsers={users} records={attendanceRecords} onSave={handleSaveAttendance} courses={courses} courseRegistrations={courseRegistrations} />
             case 'staff-portal':
@@ -1329,9 +1344,9 @@ export default function App() {
             case 'profile':
                  return <ProfileView user={currentUser} onUpdateUser={handleUpdateUser} />;
             case 'marketplace':
-                return <MarketplaceView currentUser={currentUser} listings={marketplaceListings} onPurchase={handleInitiateMarketplacePayment} onApplySeller={() => handleUpdateUser({...currentUser, sellerApplicationStatus: 'pending'})} onCreateListing={() => setModal({type: 'create-listing'})} onDeleteListing={async (id) => {await api.deleteMarketplaceListing(id); setMarketplaceListings(await api.getMarketplaceListings());}} onEditListing={(l) => setModal({type: 'edit-listing', data: l})} setActiveView={handleSetActiveView} initialSearch={initialMarketplaceSearch} onDidUseInitialSearch={() => setInitialMarketplaceSearch('')} />
+                return <MarketplaceView currentUser={currentUser} listings={marketplaceListings} onPurchase={handleInitiateMarketplacePayment} onApplySeller={() => handleUpdateUser({...currentUser, sellerApplicationStatus: 'pending'})} onCreateListing={() => setModal({type: 'create-listing'})} onDeleteListing={async (id) => {await api.deleteMarketplaceListing(id); setMarketplaceListings(await api.getMarketplaceListings());}} onEditListing={(l) => setModal({type: 'edit-listing', data: l})} setActiveView={handleSetActiveView} initialSearch={initialMarketplaceSearch} onDidUseInitialSearch={() => setInitialMarketplaceSearch('')} chatGroups={chatGroups} />
             case 'events':
-                return <EventPortalView currentUser={currentUser} events={events} registrations={eventRegistrations} ticketPurchases={eventTicketPurchases} services={registeredServices} bookings={serviceBookings} onRegisterForEvent={handleRegisterForEvent} onViewDetails={(e) => setModal({type: 'view-event', data: e})} onCreateEvent={() => setModal({type: 'create-event'})} onRegisterService={() => setModal({type: 'register-service'})} onBookServiceNoEvent={handleInitiateServiceBooking} setActiveView={handleSetActiveView} initialSearch={initialEventSearch} initialTab={initialEventTab} onDidUseInitialSearch={() => { setInitialEventSearch(''); setInitialEventTab('browse-events'); }} />
+                return <EventPortalView currentUser={currentUser} events={events} registrations={eventRegistrations} ticketPurchases={eventTicketPurchases} services={registeredServices} bookings={serviceBookings} onRegisterForEvent={handleRegisterForEvent} onViewDetails={(e) => setModal({type: 'view-event', data: e})} onCreateEvent={() => setModal({type: 'create-event'})} onRegisterService={() => setModal({type: 'register-service'})} onBookServiceNoEvent={handleInitiateServiceBooking} setActiveView={handleSetActiveView} initialSearch={initialEventSearch} initialTab={initialEventTab} onDidUseInitialSearch={() => { setInitialEventSearch(''); setInitialEventTab('browse-events'); }} chatGroups={chatGroups} />
             case 'library':
                 return <LibraryView currentUser={currentUser} books={libraryBooks} readingProgress={readingProgress} visitorPayments={visitorPayments} bookRequests={bookRequests} onOpenReader={(book, progress) => setModal({type: 'read-book', data: {book, progress}})} onOpenUploader={() => setModal({type: 'upload-book'})} onUpdateProgress={handleUpdateReadingProgress} onInitiatePayment={handleInitiateVisitorPayment} onOpenRequestForm={() => setModal({type: 'request-book'})} onOpenRequestManager={() => setModal({type: 'manage-requests'})} />;
             default:
@@ -1341,9 +1356,16 @@ export default function App() {
 
     return (
         <div className="h-screen flex bg-slate-100">
+             {/* Overlay for mobile */}
+            {isSidebarOpen && (
+                <div 
+                    className="fixed inset-0 bg-black bg-opacity-50 z-10 md:hidden"
+                    onClick={() => setIsSidebarOpen(false)}
+                ></div>
+            )}
             {/* Sidebar */}
             <aside className={`absolute md:relative z-20 md:z-auto w-64 bg-slate-800 text-white p-6 flex-col shrink-0 transition-transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:flex`}>
-                <Sidebar role={currentUser.role} activeView={activeView} setActiveView={handleSetActiveView} assignmentsDueSoonCount={assignmentsDueSoonCount} />
+                <Sidebar role={currentUser.role} activeView={activeView} setActiveView={(view) => { setActiveView(view); setIsSidebarOpen(false); }} assignmentsDueSoonCount={assignmentsDueSoonCount} />
             </aside>
 
             {/* Main Content */}
@@ -1363,7 +1385,6 @@ export default function App() {
             {modal.type === 'take-assignment' && <AssignmentTaker assignment={modal.data} studentId={currentUser.id} studentName={currentUser.name} onClose={() => setModal({ type: null })} onSubmit={handleSubmitAssignment} />}
             {modal.type === 'create-exam' && <ExamCreator onClose={() => setModal({ type: null })} onCreate={handleCreateExam} teacherId={currentUser.id} teacherName={currentUser.name} courses={courses} />}
             {modal.type === 'take-exam' && <ExamTaker exam={modal.data.exam} studentId={currentUser.id} studentName={currentUser.name} onClose={() => setModal({ type: null })} onSubmit={handleSubmitExam} attemptNumber={modal.data.attemptNumber} />}
-            {/* FIX: Use `in` operator as a type guard to correctly filter submissions based on whether they have an `assignmentId` or `examId`. */}
             {modal.type === 'view-submissions' && <ViewSubmissions item={modal.data.item} submissions={(modal.data.itemType === 'assignment' ? submissions : examSubmissions).filter(s => ('assignmentId' in s && s.assignmentId === modal.data.item.id) || ('examId' in s && s.examId === modal.data.item.id))} onClose={() => setModal({ type: null })} onGrade={(submission) => setModal({ type: 'grade-submission', data: { item: modal.data.item, submission, itemType: modal.data.itemType } })} />}
             {modal.type === 'grade-submission' && <GradeSubmission item={modal.data.item} submission={modal.data.submission} itemType={modal.data.itemType} onClose={() => setModal({ type: 'view-submissions', data: { item: modal.data.item, itemType: modal.data.itemType }})} onSaveGrade={handleGradeSubmission} />}
             {isUserCreatorOpen && <UserCreator onClose={() => setIsUserCreatorOpen(false)} onCreateUser={handleCreateUserByAdmin} />}

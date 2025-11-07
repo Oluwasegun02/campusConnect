@@ -167,7 +167,34 @@ const deleteData = async <T extends {id: string},>(key: string, itemId: string):
 // Data-specific API exports
 export const getUsers = () => fetchData<User>(STORAGE_KEYS.USERS);
 export const createUser = (user: User) => createData<User>(STORAGE_KEYS.USERS, user);
-export const updateUser = (user: User) => updateData<User>(STORAGE_KEYS.USERS, user);
+
+export const updateUser = async (user: User): Promise<User> => {
+    const users = getFromStorage<User[]>(STORAGE_KEYS.USERS, []);
+    const userBeforeUpdate = users.find(u => u.id === user.id);
+
+    const updatedUser = await updateData<User>(STORAGE_KEYS.USERS, user);
+
+    // If seller status just changed to 'approved', create a seller chat group
+    if (updatedUser.sellerApplicationStatus === 'approved' && userBeforeUpdate?.sellerApplicationStatus !== 'approved') {
+        const chatGroups = getFromStorage<ChatGroup[]>(STORAGE_KEYS.CHAT_GROUPS, []);
+        const sellerGroupExists = chatGroups.some(g => g.isSellerGroup && g.relatedSellerId === updatedUser.id);
+        
+        if (!sellerGroupExists) {
+            const newSellerGroup: ChatGroup = {
+                id: `seller-chat-${updatedUser.id}`,
+                name: `${updatedUser.name}'s Shop`,
+                isSellerGroup: true,
+                relatedSellerId: updatedUser.id,
+                adminIds: [updatedUser.id],
+                isLocked: false,
+            };
+            saveToStorage(STORAGE_KEYS.CHAT_GROUPS, [...chatGroups, newSellerGroup]);
+        }
+    }
+    
+    return updatedUser;
+};
+
 export const deleteUser = (userId: string) => deleteData<User>(STORAGE_KEYS.USERS, userId);
 
 export const getAssignments = () => fetchData<Assignment>(STORAGE_KEYS.ASSIGNMENTS);
@@ -194,19 +221,19 @@ export const getChatMessages = () => fetchData<ChatMessage>(STORAGE_KEYS.CHAT_ME
 export const createChatMessage = (message: ChatMessage) => createData<ChatMessage>(STORAGE_KEYS.CHAT_MESSAGES, message);
 export const deleteChatMessage = (messageId: string) => deleteData<ChatMessage>(STORAGE_KEYS.CHAT_MESSAGES, messageId);
 
-export const getOrCreatePrivateChat = async (user1Id: string, user2Id: string, listing: MarketplaceListing): Promise<string> => {
+export const getOrCreatePrivateChat = async (user1Id: string, user2Id: string, context: { type: 'marketplace' | 'service'; itemId: string; itemName: string; }): Promise<string> => {
     await sleep(400);
     const allGroups = getFromStorage<ChatGroup[]>(STORAGE_KEYS.CHAT_GROUPS, []);
     
-    // Check if a chat for this listing between these users already exists
     const existingGroup = allGroups.find(g => 
-        g.isPrivate && 
-        g.relatedListingId === listing.id &&
+        g.isPrivate &&
         g.members?.includes(user1Id) && 
         g.members?.includes(user2Id)
     );
 
     if (existingGroup) {
+        const updatedGroup = { ...existingGroup, lastContext: context };
+        await updateData<ChatGroup>(STORAGE_KEYS.CHAT_GROUPS, updatedGroup);
         return existingGroup.id;
     }
 
@@ -215,13 +242,12 @@ export const getOrCreatePrivateChat = async (user1Id: string, user2Id: string, l
     const user2 = getFromStorage<User[]>(STORAGE_KEYS.USERS, []).find(u => u.id === user2Id);
 
     const newGroup: ChatGroup = {
-        id: `dm-${user1Id}-${user2Id}-${listing.id}`,
-        name: `Inquiry: ${listing.title}`,
+        id: `dm-${user1Id}-${user2Id}`, // Generic ID ensures only one group exists
+        name: `Chat between ${user1?.name} and ${user2?.name}`,
         isPrivate: true,
         members: [user1Id, user2Id],
-        relatedListingId: listing.id,
+        lastContext: context,
         isLocked: false,
-        adminIds: [],
     };
 
     saveToStorage(STORAGE_KEYS.CHAT_GROUPS, [...allGroups, newGroup]);
@@ -234,59 +260,13 @@ export const getOrCreatePrivateChat = async (user1Id: string, user2Id: string, l
       senderName: 'System',
       timestamp: new Date().toISOString(),
       type: 'text',
-      text: `${user1?.name} started a chat with ${user2?.name} about "${listing.title}".`
+      text: `${user1?.name} started a private chat with ${user2?.name} regarding "${context.itemName}".`
     };
     const allMessages = getFromStorage<ChatMessage[]>(STORAGE_KEYS.CHAT_MESSAGES, []);
     saveToStorage(STORAGE_KEYS.CHAT_MESSAGES, [...allMessages, initialMessage]);
 
     return newGroup.id;
 };
-
-export const getOrCreatePrivateChatForService = async (user1Id: string, user2Id: string, service: RegisteredService): Promise<string> => {
-    await sleep(400);
-    const allGroups = getFromStorage<ChatGroup[]>(STORAGE_KEYS.CHAT_GROUPS, []);
-    
-    const existingGroup = allGroups.find(g => 
-        g.isPrivate && 
-        g.relatedServiceId === service.id &&
-        g.members?.includes(user1Id) && 
-        g.members?.includes(user2Id)
-    );
-
-    if (existingGroup) {
-        return existingGroup.id;
-    }
-
-    const user1 = getFromStorage<User[]>(STORAGE_KEYS.USERS, []).find(u => u.id === user1Id);
-    const user2 = getFromStorage<User[]>(STORAGE_KEYS.USERS, []).find(u => u.id === user2Id);
-
-    const newGroup: ChatGroup = {
-        id: `dm-serv-${Date.now()}`,
-        name: `Inquiry: ${service.serviceName}`,
-        isPrivate: true,
-        members: [user1Id, user2Id],
-        relatedServiceId: service.id,
-        isLocked: false,
-        adminIds: [],
-    };
-
-    saveToStorage(STORAGE_KEYS.CHAT_GROUPS, [...allGroups, newGroup]);
-    
-    const initialMessage: ChatMessage = {
-      id: `msg-${Date.now()}`,
-      groupId: newGroup.id,
-      senderId: 'system',
-      senderName: 'System',
-      timestamp: new Date().toISOString(),
-      type: 'text',
-      text: `${user1?.name} started a chat with ${user2?.name} about "${service.serviceName}".`
-    };
-    const allMessages = getFromStorage<ChatMessage[]>(STORAGE_KEYS.CHAT_MESSAGES, []);
-    saveToStorage(STORAGE_KEYS.CHAT_MESSAGES, [...allMessages, initialMessage]);
-
-    return newGroup.id;
-};
-
 
 export const getAttendanceRecords = () => fetchData<AttendanceRecord>(STORAGE_KEYS.ATTENDANCE);
 export const saveAttendanceRecords = async (records: AttendanceRecord[], date: string, courseId: string) => {
@@ -403,7 +383,33 @@ export const createEventTicketPurchase = (purchase: EventTicketPurchase) => crea
 
 export const getRegisteredServices = () => fetchData<RegisteredService>(STORAGE_KEYS.REGISTERED_SERVICES);
 export const createRegisteredService = (service: RegisteredService) => createData<RegisteredService>(STORAGE_KEYS.REGISTERED_SERVICES, service);
-export const updateRegisteredService = (service: RegisteredService) => updateData<RegisteredService>(STORAGE_KEYS.REGISTERED_SERVICES, service);
+
+export const updateRegisteredService = async (service: RegisteredService): Promise<RegisteredService> => {
+    const services = getFromStorage<RegisteredService[]>(STORAGE_KEYS.REGISTERED_SERVICES, []);
+    const serviceBeforeUpdate = services.find(s => s.id === service.id);
+
+    const updatedService = await updateData<RegisteredService>(STORAGE_KEYS.REGISTERED_SERVICES, service);
+
+    // If service status just changed to 'Approved', create a public chat group
+    if (updatedService.status === 'Approved' && serviceBeforeUpdate?.status !== 'Approved') {
+        const chatGroups = getFromStorage<ChatGroup[]>(STORAGE_KEYS.CHAT_GROUPS, []);
+        const serviceGroupExists = chatGroups.some(g => g.isServiceGroup && g.relatedServiceId === updatedService.id);
+        
+        if (!serviceGroupExists) {
+            const newServiceGroup: ChatGroup = {
+                id: `service-chat-${updatedService.id}`,
+                name: `${updatedService.serviceName} Q&A`,
+                isServiceGroup: true,
+                relatedServiceId: updatedService.id,
+                adminIds: [updatedService.providerId],
+                isLocked: false,
+            };
+            saveToStorage(STORAGE_KEYS.CHAT_GROUPS, [...chatGroups, newServiceGroup]);
+        }
+    }
+    
+    return updatedService;
+};
 
 export const getServiceBookings = () => fetchData<ServiceBooking>(STORAGE_KEYS.SERVICE_BOOKINGS);
 export const createServiceBooking = (booking: ServiceBooking) => createData<ServiceBooking>(STORAGE_KEYS.SERVICE_BOOKINGS, booking);

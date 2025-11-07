@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { User, ChatGroup, ChatMessage, Event, UserRole, EventRegistration, EventTicketPurchase } from '../types';
-import { PaperAirplaneIcon, MicrophoneIcon, VideoCameraIcon, StopIcon, XIcon, PlayIcon, ShieldCheckIcon, ArrowLeftIcon, Cog6ToothIcon, UserCircleIcon, PaperClipIcon, ArrowDownTrayIcon, TrashIcon, CalendarDaysIcon, ShoppingCartIcon, WrenchScrewdriverIcon } from '../constants';
+import { PaperAirplaneIcon, MicrophoneIcon, VideoCameraIcon, StopIcon, XIcon, PlayIcon, ShieldCheckIcon, ArrowLeftIcon, Cog6ToothIcon, UserCircleIcon, PaperClipIcon, ArrowDownTrayIcon, TrashIcon, CalendarDaysIcon, ShoppingCartIcon, WrenchScrewdriverIcon, BuildingOfficeIcon } from '../constants';
 import { AudioPlayer } from './AudioPlayer';
 
 interface ChatViewProps {
@@ -22,6 +22,7 @@ interface ChatViewProps {
     onViewEventDetails: (eventId: string) => void;
     onViewMarketplaceItem: (listingId: string) => void;
     onViewService: (serviceId: string) => void;
+    onViewSellerItems: (sellerId: string) => void;
 }
 
 const downloadFile = (fileData: string, fileName: string) => {
@@ -307,10 +308,19 @@ const ChatInput: React.FC<{ onSendMessage: (content: { text?: string; audioData?
 
 
 export const ChatView: React.FC<ChatViewProps> = (props) => {
-    const { currentUser, allUsers, groups, messages, onSendMessage, onStartVideoCall, onOpenSettings, setActiveView, onDeleteMessage, initialActiveGroupId, setInitialActiveGroupId, eventRegistrations, eventTicketPurchases, onViewEventDetails, onViewMarketplaceItem, onViewService } = props;
+    const { currentUser, allUsers, groups, messages, onSendMessage, onStartVideoCall, onOpenSettings, setActiveView, onDeleteMessage, initialActiveGroupId, setInitialActiveGroupId, eventRegistrations, eventTicketPurchases, onViewEventDetails, onViewMarketplaceItem, onViewService, onViewSellerItems } = props;
     const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
     const messagesEndRef = useRef<null | HTMLDivElement>(null);
     const [isMobileChatVisible, setIsMobileChatVisible] = useState(false);
+
+    const getGroupName = (group: ChatGroup): string => {
+        if (group.isPrivate) {
+            const otherUserId = group.members?.find(id => id !== currentUser.id);
+            const otherUser = allUsers.find(u => u.id === otherUserId);
+            return otherUser?.name || 'Private Chat';
+        }
+        return group.name;
+    };
 
     const userGroups = useMemo(() => {
         const registeredEventIds = new Set([
@@ -327,7 +337,10 @@ export const ChatView: React.FC<ChatViewProps> = (props) => {
                 // Show if user is an admin (creator) or has registered/bought a ticket
                 return g.adminIds?.includes(currentUser.id) || registeredEventIds.has(g.eventId);
             }
-            return !g.department || // Public group
+            if (g.isServiceGroup || g.isSellerGroup) {
+                return true; // Public service/seller groups are visible to everyone
+            }
+            return !g.department || // General public group
                    (g.department === currentUser.department && (!g.level || g.level === currentUser.level))
         });
     }, [groups, currentUser, eventRegistrations, eventTicketPurchases]);
@@ -385,6 +398,13 @@ export const ChatView: React.FC<ChatViewProps> = (props) => {
         setIsMobileChatVisible(true);
     };
 
+    const getGroupIcon = (group: ChatGroup) => {
+        if(group.isPrivate) return <UserCircleIcon className="w-6 h-6 text-slate-400 flex-shrink-0" />;
+        if(group.isServiceGroup) return <WrenchScrewdriverIcon className="w-6 h-6 text-slate-400 flex-shrink-0" />;
+        if(group.isSellerGroup) return <BuildingOfficeIcon className="w-6 h-6 text-slate-400 flex-shrink-0" />;
+        return null;
+    }
+
     return (
         <div className="flex h-[calc(100vh-120px)] bg-white rounded-lg shadow-md overflow-hidden">
             {/* Sidebar with groups */}
@@ -399,8 +419,8 @@ export const ChatView: React.FC<ChatViewProps> = (props) => {
                             onClick={() => handleSelectGroup(group.id)}
                             className={`w-full text-left p-4 hover:bg-slate-100 transition-colors flex items-center gap-3 ${activeGroupId === group.id ? 'bg-primary-50 border-r-4 border-primary-500' : ''}`}
                         >
-                            {group.isPrivate && <UserCircleIcon className="w-6 h-6 text-slate-400 flex-shrink-0" />}
-                            <p className="font-semibold text-slate-800 truncate">{group.name}</p>
+                            {getGroupIcon(group)}
+                            <p className="font-semibold text-slate-800 truncate">{getGroupName(group)}</p>
                         </button>
                     ))}
                 </nav>
@@ -410,22 +430,38 @@ export const ChatView: React.FC<ChatViewProps> = (props) => {
             <main className={`w-full md:w-2/3 flex-col ${isMobileChatVisible ? 'flex' : 'hidden'} md:flex`}>
                 {activeGroup ? (
                     <>
-                        <header className="p-4 border-b flex items-center justify-between">
-                            <div className="flex items-center gap-2">
+                        <header className="p-4 border-b flex items-center justify-between min-w-0">
+                            <div className="flex items-center gap-2 min-w-0">
                                 <button onClick={() => setIsMobileChatVisible(false)} className="md:hidden p-2 rounded-full text-slate-500 hover:bg-slate-100">
                                     <ArrowLeftIcon className="w-6 h-6" />
                                 </button>
-                                <h2 className="text-lg sm:text-xl font-bold text-slate-800 truncate">{activeGroup.name}</h2>
+                                <h2 className="text-lg sm:text-xl font-bold text-slate-800 truncate">{getGroupName(activeGroup)}</h2>
                             </div>
-                            <div className="flex items-center gap-2">
-                                {activeGroup.isEventGroup && activeGroup.eventId && (
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                               {activeGroup.isEventGroup && activeGroup.eventId && (
                                     <button onClick={() => onViewEventDetails(activeGroup.eventId!)} className="text-sm bg-slate-100 text-slate-700 font-semibold py-1 px-3 rounded-lg hover:bg-slate-200 transition flex items-center gap-1.5"><CalendarDaysIcon className="w-4 h-4" />View Event</button>
                                 )}
-                                {activeGroup.relatedListingId && (
-                                     <button onClick={() => onViewMarketplaceItem(activeGroup.relatedListingId!)} className="text-sm bg-slate-100 text-slate-700 font-semibold py-1 px-3 rounded-lg hover:bg-slate-200 transition flex items-center gap-1.5"><ShoppingCartIcon className="w-4 h-4" />View Item</button>
+                                {activeGroup.isPrivate && activeGroup.lastContext && (
+                                     <button 
+                                        onClick={() => {
+                                            if (activeGroup.lastContext?.type === 'marketplace') {
+                                                onViewMarketplaceItem(activeGroup.lastContext.itemId);
+                                            } else if (activeGroup.lastContext?.type === 'service') {
+                                                onViewService(activeGroup.lastContext.itemId);
+                                            }
+                                        }} 
+                                        className="text-sm bg-slate-100 text-slate-700 font-semibold py-1 px-3 rounded-lg hover:bg-slate-200 transition flex items-center gap-1.5"
+                                        title={activeGroup.lastContext.itemName}
+                                     >
+                                        {activeGroup.lastContext.type === 'marketplace' ? <ShoppingCartIcon className="w-4 h-4" /> : <WrenchScrewdriverIcon className="w-4 h-4" />}
+                                        <span className="hidden sm:inline">View {activeGroup.lastContext.type === 'marketplace' ? 'Item' : 'Service'}</span>
+                                    </button>
                                 )}
-                                {activeGroup.relatedServiceId && (
+                                {activeGroup.isServiceGroup && activeGroup.relatedServiceId && (
                                      <button onClick={() => onViewService(activeGroup.relatedServiceId!)} className="text-sm bg-slate-100 text-slate-700 font-semibold py-1 px-3 rounded-lg hover:bg-slate-200 transition flex items-center gap-1.5"><WrenchScrewdriverIcon className="w-4 h-4" />View Service</button>
+                                )}
+                                {activeGroup.isSellerGroup && activeGroup.relatedSellerId && (
+                                     <button onClick={() => onViewSellerItems(activeGroup.relatedSellerId!)} className="text-sm bg-slate-100 text-slate-700 font-semibold py-1 px-3 rounded-lg hover:bg-slate-200 transition flex items-center gap-1.5"><ShoppingCartIcon className="w-4 h-4" />View Shop</button>
                                 )}
                                 <button onClick={onStartVideoCall} className="p-2 rounded-full text-slate-500 hover:bg-slate-100 hover:text-primary-600 transition-colors" title="Start Video Call">
                                     <VideoCameraIcon className="w-6 h-6"/>
