@@ -17,6 +17,7 @@ import { ExamTaker } from './components/ExamTaker';
 import { ViewSubmissions } from './components/ViewSubmissions';
 import { GradeSubmission } from './components/GradeSubmission';
 import { GradesView } from './components/GradesView';
+import { LandingPage } from './components/LandingPage';
 import { LoginPage } from './components/LoginPage';
 import { SignupPage } from './components/SignupPage';
 import { ChatView } from './components/ChatView';
@@ -210,7 +211,7 @@ export default function App() {
     // Auth State
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [authView, setAuthView] = useState<'login' | 'signup'>('login');
+    const [authView, setAuthView] = useState<'landing' | 'login' | 'signup'>('landing');
     const [authError, setAuthError] = useState<string | null>(null);
 
     // Data State
@@ -415,7 +416,7 @@ export default function App() {
         await api.logout();
         setCurrentUser(null);
         setActiveView('dashboard');
-        setAuthView('login');
+        setAuthView('landing');
     };
 
     const handleUpdateUser = async (updatedUser: User) => {
@@ -1176,9 +1177,13 @@ export default function App() {
     if (isLoading) return <FullScreenLoader />;
 
     if (!currentUser) {
-        return authView === 'login' ? 
-            <LoginPage onLogin={handleLogin} onSwitchToSignup={() => setAuthView('signup')} error={authError} /> : 
-            <SignupPage onSignup={handleSignup} onSwitchToLogin={() => setAuthView('login')} error={authError} />;
+        if (authView === 'login') {
+            return <LoginPage onLogin={handleLogin} onSwitchToSignup={() => setAuthView('signup')} onBack={() => setAuthView('landing')} error={authError} />;
+        }
+        if (authView === 'signup') {
+            return <SignupPage onSignup={handleSignup} onSwitchToLogin={() => setAuthView('login')} onBack={() => setAuthView('landing')} error={authError} />;
+        }
+        return <LandingPage onLoginClick={() => setAuthView('login')} onSignupClick={() => setAuthView('signup')} />;
     }
     
     if (isVideoCallActive) {

@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { AcademicCapIcon } from '../constants';
+import { AcademicCapIcon, ArrowLeftIcon } from '../constants';
 
 interface LoginPageProps {
     onLogin: (email: string, password: string) => void;
     onSwitchToSignup: () => void;
+    onBack: () => void;
     error?: string | null;
 }
 
-export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSwitchToSignup, error }) => {
+export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSwitchToSignup, onBack, error }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
 
@@ -24,8 +25,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSwitchToSignup,
                     <h1 className="text-4xl font-bold text-slate-800 mt-2">CampusConnect</h1>
                     <p className="text-slate-600">Welcome back! Please log in.</p>
                 </div>
-                <div className="bg-white p-8 rounded-xl shadow-lg space-y-6">
-                    <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="bg-white p-8 rounded-xl shadow-lg space-y-6 relative">
+                     <button onClick={onBack} className="absolute top-4 left-4 text-slate-500 hover:text-slate-800 flex items-center gap-1 text-sm font-medium">
+                        <ArrowLeftIcon className="w-4 h-4" />
+                        Home
+                    </button>
+                    <form onSubmit={handleSubmit} className="space-y-6 pt-8">
                         <div>
                             <label htmlFor="email" className="block text-sm font-medium text-slate-700">Email Address</label>
                             <input

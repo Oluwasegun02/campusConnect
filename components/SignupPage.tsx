@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
 import { User, UserRole } from '../types';
 import { DEPARTMENTS, LEVELS } from '../constants';
-import { AcademicCapIcon } from '../constants';
+import { AcademicCapIcon, ArrowLeftIcon } from '../constants';
 
 type UserData = Omit<User, 'id' | 'password'> & { password?: string };
 
 interface SignupPageProps {
     onSignup: (userData: UserData) => void;
     onSwitchToLogin: () => void;
+    onBack: () => void;
     error?: string | null;
 }
 
-export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin, error }) => {
+export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin, onBack, error }) => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -39,8 +40,12 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogi
                     <h1 className="text-4xl font-bold text-slate-800 mt-2">Create Account</h1>
                     <p className="text-slate-600">Join CampusConnect today!</p>
                 </div>
-                <div className="bg-white p-8 rounded-xl shadow-lg">
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="bg-white p-8 rounded-xl shadow-lg relative">
+                     <button onClick={onBack} className="absolute top-4 left-4 text-slate-500 hover:text-slate-800 flex items-center gap-1 text-sm font-medium">
+                        <ArrowLeftIcon className="w-4 h-4" />
+                        Home
+                    </button>
+                    <form onSubmit={handleSubmit} className="space-y-4 pt-8">
                         <div>
                             <label className="block text-sm font-medium text-slate-700">Full Name</label>
                             <input type="text" value={name} onChange={e => setName(e.target.value)} required className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" />
